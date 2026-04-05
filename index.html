@@ -1,0 +1,1853 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ozi WH Location Intelligence — NCR</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+<style>
+:root{
+  --bg:#f7f8fa;--bg2:#ffffff;--bg3:#f0f2f6;--bg4:#e8ebf2;
+  --border:#00000010;--border2:#00000018;
+  --text:#0f1117;--text2:#4a4f62;--text3:#9098b0;
+  --accent:#5c35e8;--accent2:#7b5cff;--accent3:#e83560;
+  --orange:#e06c1a;--teal:#00a882;
+  --z1:#e03030;--z2:#e06c1a;--z3:#7b5cff;--z4:#00a882;
+  --font:'Syne',sans-serif;--mono:'DM Mono',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:var(--font)}
+
+/* LAYOUT */
+#app{display:flex;height:100vh;width:100vw}
+#sidebar{width:380px;min-width:380px;height:100vh;overflow-y:auto;background:#fff;border-right:1px solid #e0e4ec;display:flex;flex-direction:column;z-index:10;box-shadow:2px 0 12px rgba(0,0,0,0.06)}
+#map-wrap{flex:1;position:relative}
+#map{width:100%;height:100%}
+
+/* SIDEBAR SCROLLBAR */
+#sidebar::-webkit-scrollbar{width:3px}
+#sidebar::-webkit-scrollbar-track{background:transparent}
+#sidebar::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px;border:1px solid transparent}
+
+/* HEADER */
+#header{padding:20px 20px 0;flex-shrink:0}
+.logo{display:flex;align-items:center;gap:10px;margin-bottom:16px}
+.logo-dot{width:28px;height:28px;background:var(--accent);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#fff}
+.logo-text{font-size:13px;font-weight:700;letter-spacing:0.08em;color:#333;text-transform:uppercase}
+.logo-sub{font-size:10px;color:#bbb;letter-spacing:0.12em;text-transform:uppercase;margin-top:1px}
+
+/* TABS */
+.tabs{display:flex;gap:2px;background:#f0f2f6;border-radius:8px;padding:3px;margin-bottom:16px;flex-wrap:wrap}
+.tab{flex:1;padding:7px 4px;text-align:center;font-size:11px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;cursor:pointer;border-radius:6px;color:#666;transition:all 0.2s}
+.tab.on{background:#5c35e8;color:#fff;box-shadow:0 1px 6px rgba(92,53,232,0.3)}
+
+/* SECTION LABEL */
+.sec-label{font-size:9px;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;color:#999;margin-bottom:8px;padding:0 20px}
+
+/* STAT ROW */
+.stat-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;padding:0 20px;margin-bottom:16px}
+.stat{background:#f7f8fa;border:1px solid #e0e4ec;border-radius:8px;padding:10px 12px;box-shadow:0 1px 3px rgba(0,0,0,0.06)}
+.stat-val{font-size:20px;font-weight:800;color:#5c35e8;font-family:var(--mono);line-height:1}
+.stat-lbl{font-size:9px;color:#888;margin-top:3px;letter-spacing:0.05em;text-transform:uppercase}
+
+/* ZONES */
+.zones{padding:0 20px;margin-bottom:16px;display:flex;flex-direction:column;gap:6px}
+.zone-card{background:#fff;border:1px solid #e8ecf2;box-shadow:0 1px 4px rgba(0,0,0,0.06);border-radius:10px;padding:12px 14px;cursor:pointer;transition:all 0.15s;position:relative;overflow:hidden}
+.zone-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px}
+.zone-card.z1::before{background:var(--z1)}
+.zone-card.z2::before{background:var(--z2)}
+.zone-card.z3::before{background:var(--z3)}
+.zone-card.z4::before{background:var(--z4)}
+.zone-card.z3n::before{background:var(--z4)}
+.zone-card.active,.zone-card:hover{border-color:#5c35e8;background:#f5f3ff}
+.zone-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px}
+.zone-name{font-size:13px;font-weight:700;color:#111}
+.zone-score-badge{font-size:11px;font-weight:700;font-family:var(--mono);padding:2px 8px;border-radius:4px}
+.zone-pins{font-size:10px;color:#888;margin-bottom:6px}
+.zone-bar-wrap{height:4px;background:#edf0f5;border-radius:2px;margin-bottom:6px;border:1px solid #e8ecf2}
+.zone-bar{height:3px;border-radius:2px;transition:width 0.4s}
+.zone-stats{display:flex;gap:12px}
+.zone-stat{font-size:10px;color:#888}
+.zone-stat span{color:#222;font-weight:600}
+
+/* PINCODE TABLE */
+#pin-panel{padding:0 20px;margin-bottom:16px}
+.pin-search{width:100%;background:#f7f8fa;border:1px solid #d8dce8;border-radius:7px;padding:8px 12px;color:var(--text);font-family:var(--font);font-size:12px;outline:none;margin-bottom:10px}
+.pin-search:focus{border-color:var(--border2)}
+.pin-search::placeholder{color:#bbb}
+.pin-table{width:100%;border-collapse:collapse;font-size:11px}
+.pin-table th{text-align:left;padding:5px 8px;color:#999;font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;border-bottom:1px solid #e8ecf2;background:#f7f8fa}
+.pin-table td{padding:5px 8px;border-bottom:1px solid #f0f2f6;color:#555;cursor:pointer}
+.pin-table tr:hover td{background:#f5f3ff;color:#111;cursor:pointer}
+.pin-table .pc{font-family:var(--mono);color:var(--text);font-size:11px}
+.score-pill{display:inline-block;padding:1px 6px;border-radius:3px;font-family:var(--mono);font-size:10px;font-weight:700}
+
+/* WH CANDIDATES */
+#wh-panel{padding:0 20px;margin-bottom:20px;display:flex;flex-direction:column;gap:8px}
+.wh-card{background:#fff;border:1px solid #e8ecf2;box-shadow:0 1px 4px rgba(0,0,0,0.06);border-radius:10px;padding:14px;cursor:pointer;transition:all 0.2s}
+.wh-card:hover,.wh-card.active{border-color:#5c35e8;background:#f5f3ff}
+.wh-rank{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.wh-num{width:22px;height:22px;border-radius:50%;background:var(--accent2);color:#fff;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.wh-name{font-size:13px;font-weight:700;color:#111}
+.wh-score{font-size:12px;font-family:var(--mono);color:#5c35e8;margin-left:auto}
+.wh-loc{font-size:10px;color:#aaa;font-family:var(--mono);margin-bottom:8px}
+.wh-reason{font-size:11px;color:#555;line-height:1.5;margin-bottom:8px}
+.wh-zones-covered{display:flex;flex-wrap:wrap;gap:4px}
+.wh-zone-tag{font-size:9px;padding:2px 7px;border-radius:3px;font-weight:600;letter-spacing:0.04em;border:1px solid currentColor}
+.wh-metrics{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:8px;padding-top:8px;border-top:1px solid var(--border)}
+.wh-metric .v{font-size:13px;font-weight:700;font-family:var(--mono);color:#111}
+.wh-metric .l{font-size:9px;color:#aaa;text-transform:uppercase;letter-spacing:0.06em;margin-top:1px}
+
+/* DISTANCE TOOL */
+#dist-panel{padding:0 20px;margin-bottom:16px}
+.dist-inputs{display:flex;flex-direction:column;gap:6px;margin-bottom:10px}
+.dist-inputs input{background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:8px 12px;color:var(--text);font-family:var(--mono);font-size:12px;outline:none}
+.dist-inputs input:focus{border-color:var(--accent)}
+.dist-inputs input::placeholder{color:var(--text3)}
+.dist-btn{width:100%;padding:9px;background:#5c35e8;color:#fff;border:none;border-radius:7px;font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer;letter-spacing:0.06em;text-transform:uppercase;margin-bottom:10px}
+.dist-btn:hover{background:#4a28d0}
+#dist-result{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px;font-size:12px;color:var(--text2);min-height:50px;font-family:var(--mono)}
+#dist-result .big{font-size:22px;font-weight:700;color:var(--accent);display:block;margin-bottom:4px}
+
+/* CONTROLS on map */
+.map-controls{position:absolute;top:12px;right:12px;z-index:500;display:flex;flex-direction:column;gap:6px}
+.map-btn{background:#fff;border:1px solid #d0d5e0;border-radius:7px;padding:7px 12px;font-size:11px;font-family:var(--font);font-weight:600;color:#555;cursor:pointer;letter-spacing:0.05em;text-transform:uppercase;transition:all 0.15s;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,0.08)}
+.map-btn:hover,.map-btn.on{background:#f0f2ff;color:#5c35e8;border-color:#5c35e8}
+
+/* LEGEND on map */
+.map-legend{position:absolute;bottom:24px;right:12px;z-index:500;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;font-size:11px;color:var(--text2)}
+.map-legend h4{font-size:9px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#888;margin-bottom:8px}
+.leg-row{display:flex;align-items:center;gap:7px;margin:4px 0}
+.leg-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.leg-sq{width:10px;height:10px;border-radius:2px;flex-shrink:0}
+
+/* TOOLTIP on map */
+.map-tip{position:absolute;bottom:24px;left:50%;transform:translateX(-50%);z-index:600;background:#fff;border:1px solid var(--border2);box-shadow:0 2px 8px #00000015;border-radius:10px;padding:10px 16px;font-size:11px;color:var(--text2);pointer-events:none;display:none;white-space:nowrap;font-family:var(--mono)}
+.map-tip b{color:var(--text);font-size:13px;display:block;margin-bottom:3px}
+
+
+
+
+/* Leaflet popup light */
+.leaflet-popup-content-wrapper{border-radius:10px;box-shadow:0 4px 20px #00000018;border:1px solid #e8eaf0}
+.leaflet-popup-tip{background:#fff}
+
+
+
+/* DRAW TOOL */
+.draw-dist-tip{background:#fff !important;border:1.5px solid var(--accent) !important;border-radius:6px !important;padding:4px 10px !important;font-size:11px !important;font-family:var(--mono) !important;color:var(--text) !important;box-shadow:0 2px 8px #00000015 !important;white-space:nowrap}
+.draw-dist-tip b{color:var(--accent);font-weight:700}
+.leaflet-draw-toolbar a{border-radius:6px !important}
+.leaflet-draw-section{display:none} /* hide default draw toolbar — we use custom buttons */
+#draw-hint{transition:opacity 0.3s}
+
+/* CLAUDE CHATBOT */
+.chat-msg{padding:8px 12px;border-radius:8px;font-size:11px;line-height:1.6;max-width:95%;word-wrap:break-word}
+.ai-msg{background:#f7f8fa;border:1px solid #e8ecf2;color:#222;align-self:flex-start;border-radius:4px 12px 12px 12px}
+.user-msg{background:#5c35e8;color:#fff;align-self:flex-end;border-radius:12px 12px 4px 12px;margin-left:auto}
+.ai-msg b{color:#5c35e8;font-weight:700}
+.ai-msg .pin-ref{display:inline-block;background:#5c35e8;color:#fff;font-size:9px;padding:1px 5px;border-radius:3px;font-family:var(--mono);cursor:pointer;margin:0 1px}
+.ai-msg .pin-ref:hover{opacity:0.8}
+.typing-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--text3);animation:typingPulse 1.2s ease-in-out infinite}
+.typing-dot:nth-child(2){animation-delay:0.2s}
+.typing-dot:nth-child(3){animation-delay:0.4s}
+@keyframes typingPulse{0%,60%,100%{transform:translateY(0);opacity:0.4}30%{transform:translateY(-4px);opacity:1}}
+.sugg-btn{font-size:10px;padding:4px 10px;border-radius:20px;border:1px solid #d8dce8;background:#fff;color:#666;cursor:pointer;font-family:var(--font);transition:all 0.15s;white-space:nowrap}
+.sugg-btn:hover{border-color:#5c35e8;color:#5c35e8;background:#f0edff}
+#chat-messages::-webkit-scrollbar{width:3px}
+#chat-messages::-webkit-scrollbar-thumb{background:#d8dce8;border-radius:2px}
+
+/* STUDIO TAB */
+.custom-zone-card{background:#fff;border:1px solid #e8ecf2;box-shadow:0 1px 4px rgba(0,0,0,0.06);border-radius:8px;padding:10px 12px;position:relative}
+.custom-zone-card .cz-head{display:flex;align-items:center;gap:8px;margin-bottom:5px}
+.custom-zone-card .cz-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.custom-zone-card .cz-name{font-size:12px;font-weight:700;color:#111;flex:1}
+.custom-zone-card .cz-score{font-size:10px;font-family:var(--mono);color:#5c35e8}
+.custom-zone-card .cz-pins{display:flex;flex-wrap:wrap;gap:3px;margin-bottom:6px}
+.cz-pin-tag{font-size:9px;padding:2px 6px;border-radius:3px;font-family:var(--mono);cursor:pointer}
+.cz-pin-tag:hover{opacity:0.7}
+.custom-zone-card .cz-actions{display:flex;gap:5px}
+.cz-btn{font-size:10px;padding:3px 10px;border-radius:4px;border:1px solid #d8dce8;background:#fff;color:#555;cursor:pointer;font-family:var(--font)}
+.cz-btn:hover{border-color:#5c35e8;color:#5c35e8}
+.custom-wh-card{background:#fff;border:1px solid #c4b5fd;box-shadow:0 1px 4px rgba(0,0,0,0.06);border-radius:8px;padding:10px 12px}
+.custom-wh-card .wh-head{display:flex;align-items:center;gap:8px;margin-bottom:5px}
+.custom-wh-card .wh-title{font-size:12px;font-weight:700;color:#5c35e8;flex:1}
+.custom-wh-card .wh-coords{font-size:10px;font-family:var(--mono);color:#aaa;margin-bottom:5px}
+.custom-wh-card .wh-dists{font-size:10px;color:var(--text2);line-height:1.8}
+.active-pin-tag{display:inline-flex;align-items:center;gap:4px;font-size:10px;padding:3px 8px;border-radius:4px;font-family:var(--mono);cursor:pointer}
+.active-pin-tag .rm{color:var(--text3);font-size:11px}
+.active-pin-tag:hover .rm{color:var(--accent3)}
+#studio-prompt:focus{border-color:var(--accent)}
+
+/* FILTER CHIPS */
+.filter-row{display:flex;flex-wrap:wrap;gap:5px;padding:0 20px;margin-bottom:10px}
+.chip{padding:4px 10px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:0.05em;cursor:pointer;border:1px solid #d0d5e0;color:#666;background:#fff;transition:all 0.15s;white-space:nowrap;font-family:var(--font)}
+.chip:hover{border-color:#5c35e8;color:#5c35e8}
+.chip.on{border-color:transparent;color:#000}
+.chip.chip-all.on{background:#5c35e8;color:#fff;border-color:#5c35e8}
+
+/* FILTER BAR */
+.filter-bar{display:flex;gap:6px;padding:0 20px;margin-bottom:10px;align-items:center;flex-wrap:wrap}
+.filter-label{font-size:9px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--text3);white-space:nowrap}
+.fselect{background:#f7f8fa;border:1px solid #d8dce8;border-radius:6px;padding:5px 8px;color:#444;font-family:var(--font);font-size:11px;outline:none;cursor:pointer;flex:1;min-width:0}
+.fselect:focus{border-color:var(--accent)}
+
+/* SORT ROW */
+.sort-row{display:flex;gap:4px;padding:0 20px;margin-bottom:8px;align-items:center}
+.sort-btn{padding:3px 9px;border-radius:4px;font-size:10px;font-weight:600;cursor:pointer;border:1px solid #d8dce8;color:#888;background:#fff;font-family:var(--font)}
+.sort-btn.on{background:#f0edff;color:#5c35e8;border-color:#5c35e8}
+
+/* ACTIVE FILTER BADGE */
+.filter-summary{margin:0 20px 8px;padding:5px 10px;border-radius:5px;background:#f0edff;font-size:10px;color:#555;display:none}
+.filter-summary.visible{display:block;border:1px solid var(--border2)}
+.filter-summary span{color:#5c35e8;font-weight:700}
+
+/* RESULT COUNT */
+.result-count{font-size:10px;color:#aaa;padding:0 20px;margin-bottom:6px}
+.result-count b{color:#555}
+
+/* ZONE PIN SUB-LIST */
+.zone-pin-list{margin-top:8px;display:none;flex-direction:column;gap:3px}
+.zone-pin-list.open{display:flex}
+.zone-pin-row{display:flex;justify-content:space-between;align-items:center;padding:4px 8px;border-radius:4px;background:#f7f8fa;cursor:pointer;font-size:10px}
+.zone-pin-row:hover{background:#ede9ff;border-radius:4px}
+.zone-pin-row .zpn{color:#333;font-family:var(--mono)}
+.zone-pin-row .zpa{color:#aaa;font-size:9px}
+.zone-pin-row .zps{font-family:var(--mono);font-weight:700}
+
+/* WH FILTER */
+.wh-filter-bar{display:flex;gap:5px;padding:0 20px;margin-bottom:10px;flex-wrap:wrap}
+.wh-metric-filter{display:flex;flex-direction:column;gap:4px;padding:0 20px;margin-bottom:10px}
+.wh-metric-filter label{font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:0.1em}
+.wh-metric-filter input[type=range]{width:100%;accent-color:var(--accent)}
+.wh-metric-filter .range-vals{display:flex;justify-content:space-between;font-size:10px;color:var(--text2);font-family:var(--mono)}
+
+/* SCROLLABLE INNER */
+.scroll-inner{flex:1;overflow-y:auto;padding-bottom:24px}
+.scroll-inner::-webkit-scrollbar{width:2px}
+.scroll-inner::-webkit-scrollbar-thumb{background:var(--border)}
+
+/* LEAFLET OVERRIDES */
+.leaflet-container{background:#e8ecf0 !important}
+.leaflet-tile{filter:brightness(1.02) saturate(0.85) contrast(1.0)}
+.custom-pin-label{background:transparent;border:none;box-shadow:none}
+.wh-marker-icon{background:var(--bg2);border:2px solid;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#fff;font-family:'Syne',system-ui,sans-serif}
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- SIDEBAR -->
+<div id="sidebar">
+  <div id="header">
+    <div class="logo">
+      <div class="logo-dot">O</div>
+      <div>
+        <div class="logo-text">Ozi WH Intelligence</div>
+        <div class="logo-sub">NCR Location Analytics</div>
+      </div>
+    </div>
+    <div class="tabs" style="flex-wrap:wrap">
+      <div class="tab on" onclick="setTab('zones')" id="t-zones">Zones</div>
+      <div class="tab" onclick="setTab('pincodes')" id="t-pincodes">Pincodes</div>
+      <div class="tab" onclick="setTab('wh')" id="t-wh">WH Sites</div>
+      <div class="tab" onclick="setTab('dist')" id="t-dist">Distance</div>
+      <div class="tab" onclick="setTab('studio')" id="t-studio">✦ Studio</div>
+    </div>
+  </div>
+
+  <div class="scroll-inner" id="content">
+
+    <!-- ZONES TAB -->
+    <div id="tab-zones">
+      <div class="sec-label">NCR Overview</div>
+      <div class="stat-row">
+        <div class="stat"><div class="stat-val" id="ov-total">61</div><div class="stat-lbl">Total Pins</div></div>
+        <div class="stat"><div class="stat-val">3</div><div class="stat-lbl">Zones</div></div>
+        <div class="stat"><div class="stat-val" id="ov-top">12</div><div class="stat-lbl">Score 40+</div></div>
+      </div>
+
+      <div class="sec-label">Filter by Score Tier</div>
+      <div class="filter-row">
+        <button class="chip chip-all on" onclick="zoneFilterScore('all',this)">All</button>
+        <button class="chip" style="--c:#ff4444" onclick="zoneFilterScore('critical',this)" style="--c:#e03030">🔴 Critical 60+</button>
+        <button class="chip" style="--c:#ff8c42" onclick="zoneFilterScore('high',this)" style="--c:#e07020">🟠 High 40+</button>
+        <button class="chip" style="--c:#c8ff00" onclick="zoneFilterScore('medium',this)" style="--c:#2a9d3a">🟡 Medium 20+</button>
+        <button class="chip" style="--c:#445566" onclick="zoneFilterScore('low',this)">⚫ Low &lt;20</button>
+      </div>
+
+      <div class="sec-label">Filter by Coverage</div>
+      <div class="filter-row">
+        <button class="chip chip-all on" id="zf-cov-all" onclick="zoneFilterCov('all',this)">All</button>
+        <button class="chip" id="zf-cov-gap" onclick="zoneFilterCov('gap',this)">❌ Not Covered</button>
+        <button class="chip" id="zf-cov-bisrakh" onclick="zoneFilterCov('covered',this)">✓ Bisrakh Covered</button>
+      </div>
+
+      <div class="filter-summary" id="zone-filter-summary"></div>
+      <div class="result-count" id="zone-result-count"></div>
+
+      <div class="sec-label">Zones — click to expand pincodes</div>
+      <div class="zones" id="zone-cards"></div>
+    </div>
+
+    <!-- PINCODES TAB -->
+    <div id="tab-pincodes" style="display:none">
+      <div id="pin-panel">
+        <div class="sec-label" style="padding:0;margin-bottom:8px">All 61 Pincodes</div>
+        <input class="pin-search" type="text" placeholder="Search pincode or area..." id="pin-search" oninput="filterPins()">
+
+        <div class="filter-bar" style="margin-top:6px">
+          <span class="filter-label">Zone</span>
+          <select class="fselect" id="pf-zone" onchange="filterPins()">
+            <option value="all">All Zones</option>
+            <option value="z1">East Delhi + Noida Core</option>
+            <option value="z2">Ghaziabad Corridor</option>
+            <option value="z4">Faridabad</option>
+          </select>
+        </div>
+
+        <div class="filter-row" style="margin-top:0">
+          <button class="chip chip-all on" onclick="pinFilterScore('all',this)">All Scores</button>
+          <button class="chip" onclick="pinFilterScore('critical',this)">60+</button>
+          <button class="chip" onclick="pinFilterScore('high',this)">40–59</button>
+          <button class="chip" onclick="pinFilterScore('medium',this)">20–39</button>
+          <button class="chip" onclick="pinFilterScore('low',this)">&lt;20</button>
+        </div>
+
+        <div class="filter-row" style="margin-top:0">
+          <button class="chip chip-all on" onclick="pinFilterCov('all',this)">All Coverage</button>
+          <button class="chip" onclick="pinFilterCov('gap',this)">❌ Uncovered</button>
+          <button class="chip" onclick="pinFilterCov('covered',this)">✓ Bisrakh</button>
+        </div>
+
+        <div class="sort-row">
+          <span class="filter-label" style="padding:0;margin-right:4px">Sort</span>
+          <button class="sort-btn on" onclick="pinSort('score',this)">Score ↓</button>
+          <button class="sort-btn" onclick="pinSort('dist',this)">Distance</button>
+          <button class="sort-btn" onclick="pinSort('hh',this)">HH Income</button>
+          <button class="sort-btn" onclick="pinSort('kids',this)">Kids Pop</button>
+          <button class="sort-btn" onclick="pinSort('pc',this)">Pincode</button>
+        </div>
+
+        <div class="result-count" id="pin-result-count"></div>
+
+        <table class="pin-table">
+          <thead><tr><th>#</th><th>Pincode</th><th>Zone</th><th>Score</th><th>HH ₹10L+</th><th>Kids &lt;6</th><th>Dist WH1</th></tr></thead>
+          <tbody id="pin-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- WH SITES TAB -->
+    <div id="tab-wh" style="display:none">
+      <div class="sec-label">Recommended WH Locations</div>
+      <div style="margin:0 20px 12px;padding:10px 14px;background:#fff3ee;border:1px solid #ffccaa;border-radius:8px;border-left:3px solid #ff6b35">
+        <div style="font-size:11px;font-weight:700;color:#ff8c60;margin-bottom:3px">WH1 — Bisrakh / Jalalpur (Existing)</div>
+        <div style="font-size:10px;color:#ff9a70;line-height:1.5">Currently covers <b style="color:#c06040">8 pincodes</b> within 10km — Vaishali, Noida Sec 19/37/40/44/18, Vasundhara, Kaushambi. Ozi Score: <b style="color:#c06040">171.3</b>. Remaining <b style="color:#c06040">53 pincodes</b> need new WH(s).</div>
+      </div>
+      <div class="filter-bar">
+        <span class="filter-label">Coverage</span>
+        <select class="fselect" id="whf-zone" onchange="filterWH()">
+          <option value="all">All Zones</option>
+          <option value="z1">East Delhi + Noida</option>
+          <option value="z2">Ghaziabad</option>
+          <option value="z4">Faridabad</option>
+        </select>
+      </div>
+      <div class="filter-row">
+        <button class="chip chip-all on" onclick="whFilterOverlap('all',this)">All</button>
+        <button class="chip" onclick="whFilterOverlap('nooverlap',this)">✓ Zero Overlap</button>
+        <button class="chip" onclick="whFilterOverlap('overlap',this)">⚠ Has Overlap</button>
+      </div>
+      <div class="sort-row">
+        <span class="filter-label" style="padding:0;margin-right:4px">Sort</span>
+        <button class="sort-btn on" onclick="whSort('score',this)">Score ↓</button>
+        <button class="sort-btn" onclick="whSort('pincodes',this)">Pin Count</button>
+        <button class="sort-btn" onclick="whSort('net',this)">Net New</button>
+      </div>
+      <div class="result-count" id="wh-result-count"></div>
+      <div id="wh-panel"></div>
+    </div>
+
+    <!-- DISTANCE TAB -->
+    <div id="tab-dist" style="display:none">
+      <div id="dist-panel">
+        <div class="sec-label" style="padding:0;margin-bottom:10px">Distance Calculator</div>
+        <div class="dist-inputs">
+          <input type="text" id="d-from" placeholder="From pincode or lat,lng (e.g. 201304 or 28.63,77.41)">
+          <input type="text" id="d-to" placeholder="To pincode or lat,lng (e.g. 28.546,77.52)">
+        </div>
+        <button class="dist-btn" onclick="calcDist()">Calculate Distance</button>
+        <div id="dist-result">Enter two points above to calculate straight-line distance.</div>
+
+        <div style="margin-top:16px">
+          <div class="sec-label" style="padding:0;margin-bottom:6px">All Pincodes — Distance from Bisrakh</div>
+          <div class="filter-row" style="padding:0;margin-bottom:8px">
+            <button class="chip chip-all on" onclick="distFilterCov('all',this)">All</button>
+            <button class="chip" onclick="distFilterCov('covered',this)">✓ Covered ≤10km</button>
+            <button class="chip" onclick="distFilterCov('gap',this)">❌ Gap &gt;10km</button>
+            <button class="chip" onclick="distFilterCov('near',this)">Near 10–20km</button>
+            <button class="chip" onclick="distFilterCov('far',this)">Far &gt;20km</button>
+          </div>
+          <div class="sort-row" style="padding:0;margin-bottom:8px">
+            <span class="filter-label" style="padding:0;margin-right:4px">Sort</span>
+            <button class="sort-btn on" onclick="distSort('asc',this)">Nearest First</button>
+            <button class="sort-btn" onclick="distSort('desc',this)">Farthest First</button>
+            <button class="sort-btn" onclick="distSort('score',this)">By Score</button>
+          </div>
+          <div class="result-count" id="dist-result-count"></div>
+          <table class="pin-table">
+            <thead><tr><th>Pincode</th><th>Area</th><th>Score</th><th>Dist (km)</th><th>Status</th></tr></thead>
+            <tbody id="dist-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- STUDIO TAB -->
+    <div id="tab-studio" style="display:none;padding-bottom:20px">
+
+      <!-- CLAUDE AI CHATBOT -->
+      <div style="padding:0 20px;margin-bottom:12px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+          <div style="width:22px;height:22px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:900;color:#fff;flex-shrink:0">AI</div>
+          <div class="sec-label" style="padding:0;margin:0">Claude AI Assistant</div>
+          <button onclick="clearChat()" style="margin-left:auto;font-size:9px;padding:2px 8px;border-radius:4px;border:1px solid var(--border2);background:transparent;color:var(--text3);cursor:pointer;font-family:var(--font)">Clear</button>
+        </div>
+
+        <!-- Chat messages -->
+        <div id="chat-messages" style="height:280px;overflow-y:auto;background:#f7f8fa;border:1px solid #e8ecf2;border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:8px;margin-bottom:8px">
+          <div class="chat-msg ai-msg" id="chat-welcome">
+            <div style="font-size:11px;line-height:1.6;color:var(--text2)">
+              Hi! I'm your Ozi WH analyst. I have full access to all 61 pincodes, scores, and zone data.<br><br>
+              Ask me anything — <span style="color:var(--accent);font-weight:600">best WH location</span>, <span style="color:var(--accent);font-weight:600">zone analysis</span>, <span style="color:var(--accent);font-weight:600">pincode comparison</span>, or <span style="color:var(--accent);font-weight:600">create a zone</span> for you.
+            </div>
+          </div>
+        </div>
+
+        <!-- Suggested prompts -->
+        <div id="suggested-prompts" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px">
+          <button class="sugg-btn" onclick="sendSugg(this)">Best WH location?</button>
+          <button class="sugg-btn" onclick="sendSugg(this)">Top 5 pincodes by score</button>
+          <button class="sugg-btn" onclick="sendSugg(this)">Compare Noida vs Faridabad</button>
+          <button class="sugg-btn" onclick="sendSugg(this)">What does Bisrakh cover?</button>
+          <button class="sugg-btn" onclick="sendSugg(this)">Create zone for uncovered high-score pins</button>
+        </div>
+
+        <!-- Input -->
+        <div style="display:flex;gap:6px">
+          <input class="pin-search" id="chat-input" style="flex:1;margin:0" placeholder="Ask anything about WH locations, zones, pincodes...">
+          <button class="dist-btn" id="chat-send-btn" style="width:auto;padding:8px 16px;margin:0;font-size:12px;flex-shrink:0" onclick="sendChat()">Send</button>
+        </div>
+        <div id="chat-status" style="font-size:10px;color:#aaa;margin-top:4px;min-height:14px;font-family:var(--mono)"></div>
+      </div>
+
+      <!-- MODE TOGGLE -->
+      <div class="sec-label" style="padding:0 20px;margin-bottom:6px">Map Draw Mode</div>
+      <div class="filter-row" style="padding:0 20px">
+        <button class="chip on" id="mode-zone" onclick="setStudioMode('zone',this)" title="Click map to drop zone pins">📍 Zone Pin</button>
+        <button class="chip" id="mode-wh" onclick="setStudioMode('wh',this)" title="Click map to place WH point">🏭 WH Point</button>
+        <button class="chip" id="mode-line" onclick="setStudioMode('line',this)" title="Draw line between two points — shows distance">📏 Draw Line</button>
+        <button class="chip" id="mode-poly" onclick="setStudioMode('poly',this)" title="Draw polygon to create a custom zone">⬡ Draw Zone</button>
+        <button class="chip" id="mode-off" onclick="setStudioMode('off',this)">✋ Pan</button>
+      </div>
+      <div id="draw-hint" style="margin:0 20px 8px;font-size:10px;color:#888;min-height:14px;font-family:var(--mono)"></div>
+
+      <!-- ZONE BUILDER -->
+      <div style="padding:0 20px;margin-bottom:10px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+          <div class="sec-label" style="padding:0;margin:0">Build Zone</div>
+          <button class="sort-btn" onclick="clearDrawings()" style="font-size:9px;padding:3px 8px" title="Remove all drawn lines and polygons from map">🗑 Clear Drawings</button>
+        </div>
+        <div style="display:flex;gap:6px;margin-bottom:6px">
+          <input class="pin-search" id="zone-name-input" style="flex:1;margin:0" placeholder="Zone name (e.g. Priority North)">
+          <input type="color" id="zone-color-pick" value="#c8ff00" style="width:36px;height:36px;border:1px solid var(--border);border-radius:6px;cursor:pointer;padding:2px">
+        </div>
+        <div style="display:flex;gap:6px;margin-bottom:8px">
+          <input class="pin-search" id="zone-pc-input" style="flex:1;margin:0" placeholder="Type pincode + Enter to add">
+          <button class="dist-btn" style="width:auto;padding:8px 12px;margin:0;font-size:11px" onclick="addPincodeToZone()">Add</button>
+        </div>
+        <div id="zone-pins-preview" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px;min-height:24px;padding:6px;background:var(--bg3);border-radius:6px;border:1px solid var(--border)">
+          <span style="font-size:10px;color:var(--text3)" id="zone-pins-empty">No pins yet — click map or type pincode above</span>
+        </div>
+        <div style="display:flex;gap:6px">
+          <button class="dist-btn" style="flex:1;margin:0;font-size:11px" onclick="saveCustomZone()">💾 Save Zone</button>
+          <button class="sort-btn" onclick="clearActivePins()" style="padding:8px 14px;font-size:11px">Clear</button>
+        </div>
+      </div>
+
+      <!-- CUSTOM ZONES -->
+      <div style="padding:0 20px;margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <div class="sec-label" style="padding:0;margin:0">Saved Zones (<span id="cz-count">0</span>)</div>
+          <button class="sort-btn" onclick="clearAllCustomZones()" style="font-size:9px;padding:3px 8px">Clear All</button>
+        </div>
+        <div id="custom-zones-list" style="display:flex;flex-direction:column;gap:6px"></div>
+      </div>
+
+      <!-- CUSTOM WH POINTS -->
+      <div style="padding:0 20px">
+        <div class="sec-label" style="padding:0;margin-bottom:4px">Custom WH Points</div>
+        <div style="font-size:10px;color:var(--text3);margin-bottom:8px">Click WH Point mode → tap map → lines auto-draw to saved zone pins with distance</div>
+        <div id="custom-wh-list" style="display:flex;flex-direction:column;gap:5px"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- MAP -->
+<div id="map-wrap">
+  <div id="map"></div>
+
+  <div class="map-controls">
+    <button class="map-btn on" id="mb-all" onclick="mapMode('all')">All Pincodes</button>
+    <button class="map-btn" id="mb-zones" onclick="mapMode('zones')">Show Zones</button>
+    <button class="map-btn" id="mb-radius" onclick="mapMode('radius')">WH Radii</button>
+    <button class="map-btn" id="mb-heat" onclick="mapMode('heat')">Score Heat</button>
+  </div>
+
+  <div class="map-legend" id="map-legend">
+    <h4>Score Legend</h4>
+    <div class="leg-row"><div class="leg-dot" style="background:#e03030"></div>Score 60+ Critical</div>
+    <div class="leg-row"><div class="leg-dot" style="background:#e07020"></div>Score 40–59 High</div>
+    <div class="leg-row"><div class="leg-dot" style="background:#2a9d3a"></div>Score 20–39 Medium</div>
+    <div class="leg-row"><div class="leg-dot" style="background:#6b7280"></div>Score &lt;20 Low</div>
+    <div style="border-top:1px solid var(--border);margin:8px 0"></div>
+    <div class="leg-row"><div class="leg-dot" style="background:#ff6b35;border:2px solid #fff"></div>Bisrakh WH1</div>
+    <div class="leg-row"><div class="leg-dot" style="background:#7b5cff;border:2px solid #fff"></div>Recommended WH2</div>
+    <div class="leg-row"><div class="leg-dot" style="background:#16a34a;border:2px solid #fff"></div>Alt WH Sites</div>
+  </div>
+</div>
+
+</div>
+
+<script>
+// ============================================================
+// DATA
+// ============================================================
+const PINS = [
+  {pc:110003,lat:28.638,lng:77.237,s:11.2,hh:7197,pop:19349,ped:1,pre:11,sch:15,area:'New Delhi/Chandni Chowk'},
+  {pc:110014,lat:28.578,lng:77.213,s:6.4,hh:6039,pop:8624,ped:5,pre:0,sch:21,area:'Karol Bagh'},
+  {pc:110016,lat:28.55,lng:77.202,s:11.0,hh:8296,pop:14689,ped:9,pre:5,sch:17,area:'South Delhi'},
+  {pc:110017,lat:28.533,lng:77.188,s:32.8,hh:20398,pop:28752,ped:56,pre:7,sch:54,area:'South Delhi'},
+  {pc:110018,lat:28.624,lng:77.084,s:38.5,hh:39346,pop:42462,ped:32,pre:4,sch:88,area:'Dwarka'},
+  {pc:110019,lat:28.505,lng:77.253,s:24.1,hh:22226,pop:32524,ped:12,pre:8,sch:58,area:'Hauz Khas'},
+  {pc:110020,lat:28.532,lng:77.186,s:15.9,hh:5944,pop:27002,ped:21,pre:2,sch:13,area:'Vasant Vihar'},
+  {pc:110021,lat:28.557,lng:77.164,s:5.4,hh:4453,pop:11754,ped:1,pre:0,sch:9,area:'Vasant Kunj'},
+  {pc:110022,lat:28.523,lng:77.202,s:5.3,hh:4449,pop:7130,ped:0,pre:4,sch:34,area:'South Delhi'},
+  {pc:110023,lat:28.599,lng:77.201,s:4.9,hh:3846,pop:10287,ped:0,pre:2,sch:9,area:'Connaught Place'},
+  {pc:110024,lat:28.575,lng:77.268,s:13.3,hh:12374,pop:16475,ped:13,pre:0,sch:26,area:'Lajpat Nagar'},
+  {pc:110025,lat:28.527,lng:77.216,s:25.3,hh:15691,pop:32790,ped:30,pre:7,sch:35,area:'Saket'},
+  {pc:110026,lat:28.543,lng:77.221,s:11.0,hh:10305,pop:11399,ped:9,pre:5,sch:21,area:'Malviya Nagar'},
+  {pc:110027,lat:28.621,lng:77.121,s:17.7,hh:17753,pop:24523,ped:8,pre:4,sch:40,area:'Paschim Vihar'},
+  {pc:110032,lat:28.569,lng:77.298,s:36.9,hh:45899,pop:40182,ped:11,pre:6,sch:139,area:'Patparganj/Mayur Vihar Ph1'},
+  {pc:110048,lat:28.522,lng:77.236,s:15.3,hh:12941,pop:16684,ped:19,pre:3,sch:11,area:'Malviya Nagar'},
+  {pc:110049,lat:28.501,lng:77.207,s:12.8,hh:12760,pop:16418,ped:10,pre:1,sch:22,area:'Kalkaji'},
+  {pc:110057,lat:28.601,lng:77.09,s:4.9,hh:5060,pop:7028,ped:3,pre:0,sch:16,area:'Janakpuri'},
+  {pc:110058,lat:28.614,lng:77.097,s:20.4,hh:16501,pop:21671,ped:21,pre:6,sch:57,area:'Subhash Nagar'},
+  {pc:110063,lat:28.591,lng:77.071,s:16.7,hh:17760,pop:18676,ped:11,pre:4,sch:39,area:'Dwarka Sec 10'},
+  {pc:110065,lat:28.57,lng:77.065,s:14.5,hh:13359,pop:18933,ped:11,pre:2,sch:34,area:'Dwarka Sec 13'},
+  {pc:110066,lat:28.575,lng:77.049,s:0.8,hh:976,pop:2023,ped:0,pre:0,sch:1,area:'Dwarka outskirts'},
+  {pc:110070,lat:28.58,lng:77.069,s:25.3,hh:20477,pop:27795,ped:21,pre:15,sch:39,area:'Dwarka Sec 6'},
+  {pc:110075,lat:28.579,lng:77.057,s:51.0,hh:51419,pop:34832,ped:69,pre:10,sch:67,area:'Dwarka Sec 17-23'},
+  {pc:110078,lat:28.558,lng:77.059,s:14.9,hh:20867,pop:14723,ped:4,pre:4,sch:31,area:'Dwarka Sec 20'},
+  {pc:110085,lat:28.697,lng:77.12,s:51.0,hh:51147,pop:53499,ped:44,pre:9,sch:112,area:'Rohini'},
+  {pc:110091,lat:28.633,lng:77.294,s:30.0,hh:33079,pop:23275,ped:18,pre:18,sch:86,area:'Mayur Vihar Ph2'},
+  {pc:110092,lat:28.647,lng:77.315,s:71.6,hh:76137,pop:61036,ped:56,pre:32,sch:133,area:'Mayur Vihar Ph3/Kondli'},
+  {pc:110071,lat:28.56,lng:77.195,s:12.0,hh:10733,pop:14621,ped:0,pre:13,sch:40,area:'Khanpur/Sarita Vihar'},
+  {pc:201301,lat:28.571,lng:77.432,s:42.6,hh:42406,pop:45877,ped:36,pre:12,sch:52,area:'Noida Sec 19/20'},
+  {pc:201303,lat:28.607,lng:77.455,s:19.4,hh:20837,pop:15698,ped:15,pre:11,sch:33,area:'Vasundhara'},
+  {pc:201304,lat:28.63,lng:77.415,s:72.4,hh:54689,pop:45184,ped:81,pre:69,sch:122,area:'Indirapuram'},
+  {pc:201305,lat:28.54,lng:77.418,s:23.2,hh:14907,pop:30028,ped:14,pre:18,sch:61,area:'Noida Sec 37'},
+  {pc:201306,lat:28.54,lng:77.406,s:16.6,hh:12909,pop:21994,ped:6,pre:7,sch:98,area:'Noida Sec 29'},
+  {pc:201307,lat:28.556,lng:77.482,s:36.5,hh:45907,pop:39525,ped:9,pre:12,sch:97,area:'Vaishali'},
+  {pc:201308,lat:28.45,lng:77.48,s:2.9,hh:2320,pop:1630,ped:5,pre:2,sch:5,area:'Greater Noida west'},
+  {pc:201309,lat:28.434,lng:77.54,s:8.1,hh:11238,pop:7496,ped:5,pre:2,sch:3,area:'Greater Noida'},
+  {pc:201310,lat:28.591,lng:77.499,s:21.3,hh:12750,pop:17698,ped:21,pre:16,sch:113,area:'Ghaziabad Kaushambi'},
+  {pc:201311,lat:28.453,lng:77.52,s:1.6,hh:410,pop:2181,ped:0,pre:0,sch:43,area:'Greater Noida'},
+  {pc:201312,lat:28.427,lng:77.536,s:0.0,hh:5,pop:764,ped:0,pre:0,sch:1,area:'Greater Noida south'},
+  {pc:201313,lat:28.44,lng:77.53,s:6.3,hh:770,pop:4466,ped:0,pre:20,sch:23,area:'Greater Noida'},
+  {pc:201009,lat:28.62,lng:77.38,s:65.8,hh:30548,pop:86177,ped:66,pre:41,sch:152,area:'Noida Sec 50/51/52'},
+  {pc:203207,lat:28.459,lng:77.573,s:47.4,hh:19200,pop:61772,ped:29,pre:22,sch:423,area:'Greater Noida'},
+  {pc:201001,lat:28.57,lng:77.326,s:18.2,hh:9843,pop:32084,ped:15,pre:0,sch:62,area:'Noida Sec 1-15'},
+  {pc:201002,lat:28.58,lng:77.321,s:47.3,hh:19053,pop:55013,ped:36,pre:28,sch:379,area:'Noida Sec 15-16'},
+  {pc:201007,lat:28.505,lng:77.43,s:4.4,hh:2122,pop:11072,ped:1,pre:0,sch:12,area:'Noida Sec 44'},
+  {pc:201010,lat:28.55,lng:77.44,s:8.0,hh:4164,pop:18117,ped:0,pre:5,sch:8,area:'Noida Sec 18'},
+  {pc:201012,lat:28.503,lng:77.372,s:13.3,hh:8571,pop:14915,ped:12,pre:12,sch:10,area:'Noida Sec 41'},
+  {pc:201014,lat:28.476,lng:77.394,s:31.0,hh:15554,pop:31475,ped:51,pre:13,sch:21,area:'Noida Sec 46'},
+  {pc:201016,lat:28.445,lng:77.474,s:4.2,hh:1933,pop:3481,ped:9,pre:0,sch:20,area:'Noida Sec 135'},
+  {pc:201017,lat:28.458,lng:77.46,s:5.6,hh:3179,pop:8176,ped:8,pre:1,sch:2,area:'Noida Sec 96'},
+  {pc:201019,lat:28.509,lng:77.433,s:15.9,hh:7587,pop:17239,ped:19,pre:15,sch:5,area:'Noida Sec 40'},
+  {pc:121001,lat:28.396,lng:77.312,s:33.8,hh:17205,pop:52432,ped:19,pre:13,sch:185,area:'Faridabad NIT'},
+  {pc:121002,lat:28.414,lng:77.291,s:40.2,hh:24405,pop:48994,ped:28,pre:27,sch:157,area:'Faridabad Sec 7-14'},
+  {pc:121003,lat:28.385,lng:77.312,s:18.1,hh:11590,pop:30510,ped:6,pre:5,sch:97,area:'Faridabad'},
+  {pc:121007,lat:28.369,lng:77.299,s:4.2,hh:2699,pop:6625,ped:5,pre:0,sch:11,area:'Faridabad south'},
+  {pc:121009,lat:28.354,lng:77.285,s:5.4,hh:4356,pop:7731,ped:3,pre:1,sch:28,area:'Faridabad south'},
+  {pc:121012,lat:28.348,lng:77.309,s:3.5,hh:1969,pop:4430,ped:3,pre:2,sch:23,area:'Faridabad south'},
+  {pc:121013,lat:28.376,lng:77.328,s:11.8,hh:10345,pop:17985,ped:2,pre:3,sch:67,area:'Faridabad east'},
+  {pc:121014,lat:28.362,lng:77.355,s:5.3,hh:2562,pop:5094,ped:1,pre:10,sch:25,area:'Faridabad east'},
+  {pc:121101,lat:28.312,lng:77.32,s:4.5,hh:3097,pop:6717,ped:0,pre:0,sch:68,area:'Faridabad south'}
+];
+
+// ZONES — geographically logical clusters
+const ZONES = [
+  {
+    id:'z1',label:'East Delhi + Noida Core',color:'#ff4444',
+    pincodes:[110032,110091,110092,201001,201002,201009,201304,201305,201306,201301,110024],
+    reason:'Mayur Vihar belt + Patparganj + all of central Noida. Highest income density in dataset.',
+    wh_suggest:{lat:28.620,lng:77.360,label:'Sec 62 / NH-24 junction'}
+  },
+  {
+    id:'z2',label:'Ghaziabad Corridor',color:'#ff8c42',
+    pincodes:[201303,201304,201307,201310,201303,110085],
+    reason:'Indirapuram, Vaishali, Vasundhara, Kaushambi. NH-9 access. Fast growing premium demand.',
+    wh_suggest:{lat:28.638,lng:77.430,label:'Indirapuram NH-58 belt'}
+  },
+  {
+    id:'z4',label:'Faridabad + Greater Noida',color:'#00d4aa',
+    pincodes:[121001,121002,121003,121013,203207,201309,201312,201311,201313],
+    reason:'Faridabad NIT belt and Greater Noida. Lower density but growing. Phase 2 priority.',
+    wh_suggest:{lat:28.420,lng:77.300,label:'Faridabad Sec 14'}
+  }
+];
+
+// WH CANDIDATES
+// Bisrakh existing coverage
+const BISRAKH_COVERS = [201301,201307,201305,201310,201303,201019,201010,201007];
+const BISRAKH_SCORE = 171.3;
+
+const WH_SITES = [
+  {
+    rank:1,
+    name:'Noida Sec 62 / NH-24 Junction',
+    short:'Sec 62 — WH2',
+    lat:28.625,lng:77.378,col:'#7b5cff',
+    score:376.5,
+    pincodes_covered:10,
+    zones:['East Delhi + Noida Core','Ghaziabad Corridor'],
+    pcs:[110032,110091,110092,201304,201306,201009,201014,201001,201002,201012],
+    bisrakh_overlap:[],
+    new_pcs_added:10,
+    reason:'Best single new location. Captures Indirapuram (72.4), Mayur Vihar Ph3 (71.6), Noida Sec 50-52 (65.8) — the 3 highest-scoring uncovered pincodes. NH-24 frontage ensures 60-min delivery to entire East Delhi + Noida core. Zero overlap with Bisrakh.',
+    metrics:{pincodes:'10 new',score:'376.5',hh:'3.6L+',kids:'4.0L+'},
+    overlap_note:'Zero overlap with Bisrakh WH'
+  },
+  {
+    rank:2,
+    name:'Indirapuram NH-58 / Vaishali Belt',
+    short:'Indirapuram — WH3',
+    lat:28.637,lng:77.420,col:'#ff8c42',
+    score:291.0,
+    pincodes_covered:8,
+    zones:['Ghaziabad Corridor'],
+    pcs:[110091,110092,201304,201303,201307,201310,201009,203207],
+    bisrakh_overlap:[201307,201310,201303],
+    new_pcs_added:5,
+    reason:'Covers Vaishali, Vasundhara, Kaushambi + Indirapuram corridor. BUT overlaps 3 pincodes already served by Bisrakh (201307 Vaishali, 201310 Kaushambi, 201303 Vasundhara). Net NEW pincodes added = 5. Best as WH3 after Sec 62 is set up.',
+    metrics:{pincodes:'5 net new',score:'291',hh:'2.8L+',kids:'3.2L+'},
+    overlap_note:'Overlaps 3 Bisrakh pincodes — deploy after WH2'
+  },
+  {
+    rank:3,
+    name:'Dwarka Sec 10 — Delhi West',
+    short:'Dwarka — WH3',
+    lat:28.590,lng:77.075,col:'#16a34a',
+    score:181.0,
+    pincodes_covered:8,
+    zones:['Delhi West'],
+    pcs:[110057,110058,110063,110065,110070,110075,110078,110027],
+    bisrakh_overlap:[],
+    new_pcs_added:8,
+    reason:'Captures the Delhi West belt — Dwarka Sec 17-23 (score 51.0), Rohini (51.0), Subhash Nagar, Janakpuri. Completely separate geography, zero overlap with Bisrakh. Needed if Ozi wants West Delhi + Rohini expansion.',
+    metrics:{pincodes:'8 new',score:'181',hh:'1.9L+',kids:'1.8L+'},
+    overlap_note:'Zero overlap with Bisrakh WH'
+  }
+];
+
+const BISRAKH = {lat:28.546,lng:77.52};
+
+// ============================================================
+// MAP SETUP
+// ============================================================
+const map = L.map('map',{zoomControl:false,preferCanvas:true}).setView([28.55,77.32],11);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'',maxZoom:18}).addTo(map);
+L.control.zoom({position:'bottomleft'}).addTo(map);
+
+function haversine(a,b){
+  const R=6371,dlat=(b.lat-a.lat)*Math.PI/180,dlng=(b.lng-a.lng)*Math.PI/180;
+  const x=Math.sin(dlat/2)**2+Math.cos(a.lat*Math.PI/180)*Math.cos(b.lat*Math.PI/180)*Math.sin(dlng/2)**2;
+  return +(R*2*Math.asin(Math.sqrt(x))).toFixed(1);
+}
+
+PINS.forEach(p=>{p.distBisrakh=haversine(p,BISRAKH);p.coveredBisrakh=p.distBisrakh<10;});
+
+function scoreColor(s){
+  if(s>=60)return'#e03030';
+  if(s>=40)return'#e07020';
+  if(s>=20)return'#2a9d3a';
+  return'#6b7280';
+}
+function scoreLabel(s){
+  if(s>=60)return'Critical';
+  if(s>=40)return'High';
+  if(s>=20)return'Medium';
+  return'Low';
+}
+
+let pinMarkers=[], whMarkers=[], radiusCircles=[], zonePolygons=[], activeZone=null, currentMode='all';
+
+function makePinMarker(p){
+  const r = p.s>=60?12:p.s>=40?9:p.s>=20?7:5;
+  const col = scoreColor(p.s);
+  const icon = L.divIcon({
+    className:'',
+    html:`<div style="width:${r*2}px;height:${r*2}px;border-radius:50%;background:${col};border:${p.covB?'2.5px solid #ff6b35':'1.5px solid rgba(255,255,255,0.8)'};box-shadow:0 1px 4px rgba(0,0,0,0.25);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:transform 0.15s">${p.s>=60?'<span style="color:#fff;font-size:8px;font-weight:900">★</span>':''}</div>`,
+    iconSize:[r*2,r*2],iconAnchor:[r,r]
+  });
+  const m = L.marker([p.lat,p.lng],{icon}).addTo(map);
+  const zoneName = ZONES.find(z=>z.pincodes.includes(p.pc))?.label||'—';
+  m.bindPopup(`
+    <div style="font-family:'Syne',system-ui,sans-serif;min-width:220px">
+      <div style="font-size:14px;font-weight:800;color:#111;margin-bottom:4px">${p.area}</div>
+      <div style="font-size:11px;color:#666;font-family:'DM Mono','Courier New',monospace;margin-bottom:8px">${p.pc}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px">
+        <div style="background:#f5f5f5;border-radius:6px;padding:7px 10px">
+          <div style="font-size:16px;font-weight:800;color:${col}">${p.s}</div>
+          <div style="font-size:9px;color:#888;text-transform:uppercase;letter-spacing:0.1em">Ozi Score</div>
+        </div>
+        <div style="background:#f5f5f5;border-radius:6px;padding:7px 10px">
+          <div style="font-size:13px;font-weight:800;color:#333">${(p.hh/1000).toFixed(1)}k</div>
+          <div style="font-size:9px;color:#888;text-transform:uppercase;letter-spacing:0.1em">HH ₹10L+</div>
+        </div>
+        <div style="background:#f5f5f5;border-radius:6px;padding:7px 10px">
+          <div style="font-size:13px;font-weight:800;color:#333">${(p.pop/1000).toFixed(0)}k</div>
+          <div style="font-size:9px;color:#888;text-transform:uppercase;letter-spacing:0.1em">Kids &lt;6yr</div>
+        </div>
+        <div style="background:#f5f5f5;border-radius:6px;padding:7px 10px">
+          <div style="font-size:13px;font-weight:800;color:#333">${p.ped}</div>
+          <div style="font-size:9px;color:#888;text-transform:uppercase;letter-spacing:0.1em">Ped Clinics</div>
+        </div>
+      </div>
+      <div style="font-size:10px;color:#666;margin-bottom:2px">Zone: <b>${zoneName}</b></div>
+      <div style="font-size:10px;color:#666;margin-bottom:2px">Preschools: <b>${p.pre}</b> &nbsp;·&nbsp; Schools: <b>${p.sch}</b></div>
+      <div style="font-size:10px;margin-top:4px;padding:4px 8px;border-radius:4px;background:${p.covB?'#fff3ee':'#f0fff8'};color:${p.covB?'#e05020':'#1a8060'}">
+        ${p.covB?'✓ Bisrakh/Jalalpur WH covers ('+p.distBisrakh+' km)':'✗ Not covered by Bisrakh — '+p.distBisrakh+' km away'}
+      </div>
+    </div>
+  `,{maxWidth:260});
+  return m;
+}
+
+function makeWHMarker(wh, isBisrakh=false){
+  const col = isBisrakh?'#ff6b35':wh.col;
+  const label = isBisrakh?'WH1':`#${wh.rank}`;
+  const icon = L.divIcon({
+    className:'',
+    html:`<div style="width:36px;height:36px;border-radius:50%;background:${col};border:3px solid #fff;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 12px ${col}88">
+      <span style="color:#fff;font-size:10px;font-weight:900;font-family:'Syne',system-ui,sans-serif">${label}</span>
+    </div>`,
+    iconSize:[36,36],iconAnchor:[18,18]
+  });
+  if(isBisrakh){
+    return L.marker([BISRAKH.lat,BISRAKH.lng],{icon,zIndexOffset:1000}).addTo(map)
+      .bindPopup(`<div style="font-family:'Syne',system-ui,sans-serif;min-width:220px">
+        <b style="color:#ff6b35">Bisrakh / Jalalpur WH1 — Existing</b>
+        <div style="font-size:11px;color:#888;margin:4px 0">28.546, 77.520 · 10km radius</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;margin:8px 0">
+          <div style="background:#fff3ee;border-radius:5px;padding:6px 8px"><div style="font-size:15px;font-weight:800;color:#ff6b35">8</div><div style="font-size:9px;color:#888">Pincodes covered</div></div>
+          <div style="background:#fff3ee;border-radius:5px;padding:6px 8px"><div style="font-size:15px;font-weight:800;color:#ff6b35">171</div><div style="font-size:9px;color:#888">Ozi Score</div></div>
+        </div>
+        <div style="font-size:10px;font-weight:600;color:#555;margin-bottom:3px">Currently serving:</div>
+        <div style="font-size:10px;color:#777;line-height:1.6">Vaishali · Noida Sec 19/20 · Vasundhara · Kaushambi · Noida Sec 37 · Noida Sec 40 · Noida Sec 18 · Noida Sec 44</div>
+      </div>`);
+  }
+  return L.marker([wh.lat,wh.lng],{icon,zIndexOffset:900}).addTo(map)
+    .bindPopup(`<div style="font-family:'Syne',system-ui,sans-serif;min-width:200px">
+      <b style="color:${wh.col}">#${wh.rank} ${wh.name}</b><br>
+      <span style="font-size:11px;color:#666">${wh.pincodes_covered} pincodes · Score ${wh.score}</span><br>
+      <span style="font-size:11px;color:#333;margin-top:4px;display:block">${wh.reason.slice(0,120)}…</span>
+    </div>`);
+}
+
+// INIT MAP
+function initMap(){
+  pinMarkers = PINS.map(p=>makePinMarker(p));
+  // Bisrakh
+  makeWHMarker(null,true);
+  // Bisrakh radius
+  L.circle([BISRAKH.lat,BISRAKH.lng],{radius:10000,color:'#ff6b35',fillColor:'#ff6b35',fillOpacity:0.06,weight:1.5,dashArray:'6,4'}).addTo(map);
+  // WH markers
+  WH_SITES.forEach(wh=>makeWHMarker(wh));
+  // WH radii (default shown for WH1 only)
+  WH_SITES.forEach(wh=>{
+    const c = L.circle([wh.lat,wh.lng],{radius:10000,color:wh.col,fillColor:wh.col,fillOpacity:0.05,weight:1,dashArray:'5,4'}).addTo(map);
+    radiusCircles.push(c);
+  });
+}
+
+// MAP MODE
+function mapMode(m){
+  currentMode=m;
+  document.querySelectorAll('.map-btn').forEach(b=>b.classList.remove('on'));
+  document.getElementById('mb-'+m).classList.add('on');
+  // toggle zone polygons
+  zonePolygons.forEach(p=>map.removeLayer(p));
+  zonePolygons=[];
+  if(m==='zones'){
+    ZONES.forEach(z=>{
+      const pins=PINS.filter(p=>z.pincodes.includes(p.pc));
+      if(pins.length<2)return;
+      // convex hull approximation
+      const pts=pins.map(p=>[p.lat,p.lng]);
+      const hull=convexHull(pts);
+      const poly=L.polygon(hull,{color:z.color,fillColor:z.color,fillOpacity:0.12,weight:1.5,dashArray:'4,3'}).addTo(map);
+      poly.bindTooltip(z.label,{permanent:false,direction:'center'});
+      zonePolygons.push(poly);
+    });
+  }
+  // radius circles
+  radiusCircles.forEach(c=>{try{if(m==='radius'||m==='all'){if(!map.hasLayer(c))c.addTo(map);}else{if(map.hasLayer(c))map.removeLayer(c);}}catch(e){}});
+}
+
+// Simple convex hull (gift wrapping)
+function convexHull(pts){
+  if(pts.length<3)return pts;
+  // Sort by lat then lng
+  const sorted=[...pts].sort((a,b)=>a[0]-b[0]||a[1]-b[1]);
+  const cross=(o,a,b)=>(a[0]-o[0])*(b[1]-o[1])-(a[1]-o[1])*(b[0]-o[0]);
+  const lower=[];
+  for(const p of sorted){while(lower.length>=2&&cross(lower[lower.length-2],lower[lower.length-1],p)<=0)lower.pop();lower.push(p);}
+  const upper=[];
+  for(let i=sorted.length-1;i>=0;i--){const p=sorted[i];while(upper.length>=2&&cross(upper[upper.length-2],upper[upper.length-1],p)<=0)upper.pop();upper.push(p);}
+  upper.pop();lower.pop();
+  return lower.concat(upper);
+}
+
+// ============================================================
+// SIDEBAR TABS
+// ============================================================
+function setTab(t){
+  ['zones','pincodes','wh','dist','studio'].forEach(id=>{
+    document.getElementById('tab-'+id).style.display=id===t?'':'none';
+    document.getElementById('t-'+id).classList.toggle('on',id===t);
+  });
+  if(t==='dist')buildDistTable();
+  if(t==='studio')initStudio();
+}
+
+// ============================================================
+// SHARED FILTER STATE
+// ============================================================
+const state = {
+  zone: { score:'all', cov:'all' },
+  pin:  { q:'', zone:'all', score:'all', cov:'all', sort:'score' },
+  wh:   { zone:'all', overlap:'all', sort:'score' },
+  dist: { cov:'all', sort:'asc' }
+};
+
+function setChipGroup(group, val, el){
+  el.closest('.filter-row').querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));
+  el.classList.add('on');
+  // color the active chip
+  const col = el.style.getPropertyValue('--c');
+  el.style.background = val==='all' ? '' : (col||'var(--accent)');
+  el.style.color = val==='all' ? '' : '#000';
+}
+
+// ============================================================
+// ZONES TAB
+// ============================================================
+function zoneFilterScore(val, el){
+  state.zone.score = val;
+  setChipGroup('zone-score', val, el);
+  buildZones();
+}
+function zoneFilterCov(val, el){
+  state.zone.cov = val;
+  setChipGroup('zone-cov', val, el);
+  buildZones();
+}
+
+function buildZones(){
+  const maxScore = Math.max(...ZONES.map(z=>zoneTotalScore(z)));
+  const cards = document.getElementById('zone-cards');
+  let html = '';
+  let totalShown = 0;
+
+  ZONES.forEach(z=>{
+    // filter pins in this zone
+    let zonePins = PINS.filter(p=>z.pincodes.includes(p.pc));
+    if(state.zone.score!=='all'){
+      const ranges={critical:[60,999],high:[40,59.9],medium:[20,39.9],low:[0,19.9]};
+      const [mn,mx]=ranges[state.zone.score];
+      zonePins=zonePins.filter(p=>p.s>=mn&&p.s<=mx);
+    }
+    if(state.zone.cov==='gap') zonePins=zonePins.filter(p=>!p.covB);
+    if(state.zone.cov==='covered') zonePins=zonePins.filter(p=>p.covB);
+    if(!zonePins.length) return;
+
+    totalShown += zonePins.length;
+    const ts = zonePins.reduce((a,p)=>a+p.s,0);
+    const totalHH = zonePins.reduce((a,p)=>a+p.hh,0);
+    const totalKids = zonePins.reduce((a,p)=>a+p.pop,0);
+    const pct = (ts/maxScore*100).toFixed(0);
+
+    // Pin sub-rows
+    const pinRows = [...zonePins].sort((a,b)=>b.s-a.s).map(p=>`
+      <div class="zone-pin-row" onclick="flyToPin(${p.pc})">
+        <span class="zpn">${p.pc}</span>
+        <span class="zpa">${p.area.slice(0,22)}</span>
+        <span class="zps" style="color:${scoreColor(p.s)}">${p.s}</span>
+        <span style="font-size:9px;color:${p.covB?'#00d4aa':'#ff4444'}">${p.covB?'✓':'✗'}</span>
+      </div>`).join('');
+
+    html += `<div class="zone-card ${z.id}" id="zc-${z.id}" onclick="toggleZoneExpand('${z.id}',event)">
+      <div class="zone-head">
+        <div class="zone-name">${z.label}</div>
+        <div class="zone-score-badge" style="background:${z.color}22;color:${z.color}">${ts.toFixed(0)}</div>
+      </div>
+      <div class="zone-pins">${zonePins.length} pincodes · Avg ${(ts/zonePins.length).toFixed(1)}</div>
+      <div class="zone-bar-wrap"><div class="zone-bar" style="width:${pct}%;background:${z.color}"></div></div>
+      <div class="zone-stats">
+        <div class="zone-stat">HH ₹10L+ <span>${(totalHH/1000).toFixed(0)}k</span></div>
+        <div class="zone-stat">Kids &lt;6 <span>${(totalKids/1000).toFixed(0)}k</span></div>
+        <div class="zone-stat">Uncovered <span style="color:${z.color}">${zonePins.filter(p=>!p.covB).length}</span></div>
+      </div>
+      <div class="zone-pin-list" id="zpl-${z.id}">${pinRows}</div>
+    </div>`;
+  });
+
+  cards.innerHTML = html || '<div style="padding:20px;text-align:center;color:var(--text3);font-size:12px">No zones match filter</div>';
+
+  // Summary
+  const sf = document.getElementById('zone-filter-summary');
+  const rc = document.getElementById('zone-result-count');
+  const active = state.zone.score!=='all'||state.zone.cov!=='all';
+  sf.className = active ? 'filter-summary visible' : 'filter-summary';
+  sf.innerHTML = active ? `Filtered: <span>Score ${state.zone.score}</span> · Coverage: <span>${state.zone.cov}</span>` : '';
+  rc.textContent = `Showing ${totalShown} pincodes across zones`;
+}
+
+function toggleZoneExpand(zid, e){
+  if(e.target.closest('.zone-pin-row')){return;}
+  const list = document.getElementById('zpl-'+zid);
+  const isOpen = list.classList.contains('open');
+  // close all
+  document.querySelectorAll('.zone-pin-list').forEach(l=>l.classList.remove('open'));
+  document.querySelectorAll('.zone-card').forEach(c=>c.classList.remove('active'));
+  if(!isOpen){
+    list.classList.add('open');
+    document.getElementById('zc-'+zid).classList.add('active');
+    // also highlight on map
+    const z=ZONES.find(x=>x.id===zid);
+    const pins=PINS.filter(p=>z.pincodes.includes(p.pc));
+    const lats=pins.map(p=>p.lat),lngs=pins.map(p=>p.lng);
+    map.fitBounds([[Math.min(...lats)-0.02,Math.min(...lngs)-0.02],[Math.max(...lats)+0.02,Math.max(...lngs)+0.02]]);
+    mapMode('zones');
+  }
+}
+
+function highlightZone(zid){
+  const z=ZONES.find(x=>x.id===zid);
+  const pins=PINS.filter(p=>z.pincodes.includes(p.pc));
+  if(!pins.length)return;
+  const lats=pins.map(p=>p.lat),lngs=pins.map(p=>p.lng);
+  map.fitBounds([[Math.min(...lats)-0.02,Math.min(...lngs)-0.02],[Math.max(...lats)+0.02,Math.max(...lngs)+0.02]]);
+  mapMode('zones');
+}
+
+function zoneTotalScore(z){
+  return PINS.filter(p=>z.pincodes.includes(p.pc)).reduce((a,p)=>a+p.s,0);
+}
+
+// ============================================================
+// PINCODES TAB
+// ============================================================
+function pinFilterScore(val,el){ state.pin.score=val; setChipGroup('pin-score',val,el); filterPins(); }
+function pinFilterCov(val,el){ state.pin.cov=val; setChipGroup('pin-cov',val,el); filterPins(); }
+function pinSort(val,el){
+  state.pin.sort=val;
+  el.closest('.sort-row').querySelectorAll('.sort-btn').forEach(b=>b.classList.remove('on'));
+  el.classList.add('on');
+  filterPins();
+}
+
+function filterPins(){
+  const q = document.getElementById('pin-search').value.toLowerCase();
+  const zoneVal = document.getElementById('pf-zone').value;
+  let data = [...PINS];
+
+  // text search
+  if(q) data=data.filter(p=>String(p.pc).includes(q)||p.area.toLowerCase().includes(q));
+  // zone
+  if(zoneVal!=='all'){
+    const z=ZONES.find(x=>x.id===zoneVal);
+    if(z) data=data.filter(p=>z.pincodes.includes(p.pc));
+  }
+  // score tier
+  if(state.pin.score!=='all'){
+    const ranges={critical:[60,999],high:[40,59.9],medium:[20,39.9],low:[0,19.9]};
+    const [mn,mx]=ranges[state.pin.score];
+    data=data.filter(p=>p.s>=mn&&p.s<=mx);
+  }
+  // coverage
+  if(state.pin.cov==='gap') data=data.filter(p=>!p.covB);
+  if(state.pin.cov==='covered') data=data.filter(p=>p.covB);
+
+  // sort
+  const sortFns={
+    score:(a,b)=>b.s-a.s,
+    dist:(a,b)=>a.distBisrakh-b.distBisrakh,
+    hh:(a,b)=>b.hh-a.hh,
+    kids:(a,b)=>b.pop-a.pop,
+    pc:(a,b)=>a.pc-b.pc
+  };
+  data.sort(sortFns[state.pin.sort]||sortFns.score);
+
+  const rc = document.getElementById('pin-result-count');
+  rc.innerHTML = `<b>${data.length}</b> of ${PINS.length} pincodes`;
+  buildPinTable(data);
+}
+
+function buildPinTable(data){
+  data = data||[...PINS].sort((a,b)=>b.s-a.s);
+  document.getElementById('pin-tbody').innerHTML = data.map((p,i)=>{
+    const col=scoreColor(p.s);
+    const zone=ZONES.find(z=>z.pincodes.includes(p.pc));
+    return `<tr onclick="flyToPin(${p.pc})" title="${p.area}">
+      <td style="color:var(--text3)">${i+1}</td>
+      <td class="pc">${p.pc}</td>
+      <td style="font-size:10px">${zone?`<span style="color:${zone.color}">${zone.label.split(' ')[0]}</span>`:'—'}</td>
+      <td><span class="score-pill" style="background:${col}22;color:${col}">${p.s}</span></td>
+      <td>${(p.hh/1000).toFixed(1)}k</td>
+      <td>${(p.pop/1000).toFixed(0)}k</td>
+      <td style="font-family:var(--mono);font-size:10px;color:${p.covB?'#00d4aa':'var(--text3)'}">${p.distBisrakh}km</td>
+    </tr>`;
+  }).join('');
+}
+
+// ============================================================
+// WH SITES TAB
+// ============================================================
+function whFilterOverlap(val,el){ state.wh.overlap=val; setChipGroup('wh-overlap',val,el); buildWHPanel(); }
+function whSort(val,el){
+  state.wh.sort=val;
+  el.closest('.sort-row').querySelectorAll('.sort-btn').forEach(b=>b.classList.remove('on'));
+  el.classList.add('on');
+  buildWHPanel();
+}
+function filterWH(){ buildWHPanel(); }
+
+function buildWHPanel(){
+  const zoneVal = document.getElementById('whf-zone')?.value||'all';
+  let data = [...WH_SITES];
+
+  // zone filter
+  if(zoneVal!=='all'){
+    const z=ZONES.find(x=>x.id===zoneVal);
+    if(z) data=data.filter(wh=>wh.pcs.some(pc=>z.pincodes.includes(pc)));
+  }
+  // overlap filter
+  if(state.wh.overlap==='nooverlap') data=data.filter(wh=>!wh.bisrakh_overlap||wh.bisrakh_overlap.length===0);
+  if(state.wh.overlap==='overlap') data=data.filter(wh=>wh.bisrakh_overlap&&wh.bisrakh_overlap.length>0);
+
+  // sort
+  if(state.wh.sort==='score') data.sort((a,b)=>b.score-a.score);
+  if(state.wh.sort==='pincodes') data.sort((a,b)=>b.pincodes_covered-a.pincodes_covered);
+  if(state.wh.sort==='net') data.sort((a,b)=>b.new_pcs_added-a.new_pcs_added);
+
+  const rc = document.getElementById('wh-result-count');
+  if(rc) rc.innerHTML = `<b>${data.length}</b> of ${WH_SITES.length} WH sites`;
+
+  document.getElementById('wh-panel').innerHTML = data.map(wh=>`
+    <div class="wh-card" id="whc-${wh.rank}" onclick="flyToWH(${wh.rank})">
+      <div class="wh-rank">
+        <div class="wh-num" style="background:${wh.col}">${wh.rank}</div>
+        <div class="wh-name">${wh.name}</div>
+        <div class="wh-score">${wh.score}</div>
+      </div>
+      <div class="wh-loc">${wh.lat.toFixed(4)}, ${wh.lng.toFixed(4)}</div>
+      <div class="wh-reason">${wh.reason}</div>
+      <div style="margin:6px 0;padding:5px 8px;border-radius:5px;font-size:10px;background:${wh.bisrakh_overlap&&wh.bisrakh_overlap.length>0?'#ff8c4215':'#00d4aa15'};color:${wh.bisrakh_overlap&&wh.bisrakh_overlap.length>0?'#ff8c42':'#00d4aa'}">
+        ${wh.bisrakh_overlap&&wh.bisrakh_overlap.length>0?'⚠ '+wh.overlap_note:'✓ '+wh.overlap_note}
+      </div>
+      <div class="wh-zones-covered">
+        ${wh.zones.map(z=>{const zo=ZONES.find(x=>x.label===z);return`<span class="wh-zone-tag" style="background:${zo?zo.color+'22':'#ffffff11'};color:${zo?zo.color:'#aaa'}">${z}</span>`;}).join('')}
+      </div>
+      <div class="wh-metrics">
+        <div class="wh-metric"><div class="v">${wh.metrics.pincodes}</div><div class="l">Net New</div></div>
+        <div class="wh-metric"><div class="v">${wh.metrics.hh}</div><div class="l">HH ₹10L+</div></div>
+        <div class="wh-metric"><div class="v">${wh.metrics.kids}</div><div class="l">Kids &lt;6</div></div>
+      </div>
+    </div>
+  `).join('') || '<div style="padding:20px;text-align:center;color:var(--text3);font-size:12px">No WH sites match filter</div>';
+}
+
+function flyToWH(rank){
+  const wh=WH_SITES.find(w=>w.rank===rank);
+  if(!wh)return;
+  document.querySelectorAll('.wh-card').forEach(c=>c.classList.remove('active'));
+  const card=document.getElementById('whc-'+rank);
+  if(card)card.classList.add('active');
+  map.flyTo([wh.lat,wh.lng],12,{duration:1.5});
+}
+
+function flyToPin(pc){
+  const p=PINS.find(x=>x.pc===pc);
+  if(!p)return;
+  map.flyTo([p.lat,p.lng],14,{duration:1.2});
+  setTimeout(()=>{ const m=pinMarkers[PINS.indexOf(p)]; if(m)m.openPopup(); },1300);
+}
+
+function calcDist(){
+  const fromVal=document.getElementById('d-from').value.trim();
+  const toVal=document.getElementById('d-to').value.trim();
+  const result=document.getElementById('dist-result');
+  function parsePoint(v){
+    const pc=parseInt(v);
+    if(!isNaN(pc)&&v.length<=6){const p=PINS.find(x=>x.pc===pc);if(p)return{lat:p.lat,lng:p.lng,label:p.area+' ('+pc+')'};}
+    const parts=v.split(',').map(x=>parseFloat(x.trim()));
+    if(parts.length===2&&!isNaN(parts[0])&&!isNaN(parts[1]))return{lat:parts[0],lng:parts[1],label:v};
+    if(v.toLowerCase()==='bisrakh'||v==='wh1')return{lat:BISRAKH.lat,lng:BISRAKH.lng,label:'Bisrakh WH1'};
+    return null;
+  }
+  const a=parsePoint(fromVal),b=parsePoint(toVal);
+  if(!a){result.innerHTML='<span style="color:#ff4444">Cannot parse From — use pincode or lat,lng</span>';return;}
+  if(!b){result.innerHTML='<span style="color:#ff4444">Cannot parse To — use pincode or lat,lng</span>';return;}
+  const d=haversine({lat:a.lat,lng:a.lng},{lat:b.lat,lng:b.lng});
+  const estTime=Math.round(d/0.35);
+  result.innerHTML=`<span class="big">${d} km</span><span style="color:var(--text2)">${a.label}</span> → <span style="color:var(--text)">${b.label}</span><br><br><span style="color:var(--text3)">Est. delivery ≈ </span><span style="color:var(--accent)">${estTime} min</span> at urban speed<br><span style="color:${d<=10?'#00d4aa':'#ff8c42'}">${d<=10?'✓ Within 10km WH range':'⚠ Outside 10km — '+Math.round(d/10*60)+' min est.'}</span>`;
+  if(window._distLine)map.removeLayer(window._distLine);
+  window._distLine=L.polyline([[a.lat,a.lng],[b.lat,b.lng]],{color:'#c8ff00',weight:2,dashArray:'6,4'}).addTo(map);
+  map.fitBounds([[Math.min(a.lat,b.lat)-0.01,Math.min(a.lng,b.lng)-0.01],[Math.max(a.lat,b.lat)+0.01,Math.max(a.lng,b.lng)+0.01]]);
+}
+
+// ============================================================
+// DISTANCE TAB
+// ============================================================
+let distFilterState = { cov:'all', sort:'asc' };
+
+function distFilterCov(val,el){ distFilterState.cov=val; setChipGroup('dist-cov',val,el); buildDistTable(); }
+function distSort(val,el){
+  distFilterState.sort=val;
+  el.closest('.sort-row').querySelectorAll('.sort-btn').forEach(b=>b.classList.remove('on'));
+  el.classList.add('on');
+  buildDistTable();
+}
+
+function buildDistTable(){
+  let data = [...PINS];
+  // filter
+  if(distFilterState.cov==='covered') data=data.filter(p=>p.covB);
+  if(distFilterState.cov==='gap') data=data.filter(p=>!p.covB);
+  if(distFilterState.cov==='near') data=data.filter(p=>!p.covB&&p.distBisrakh<=20);
+  if(distFilterState.cov==='far') data=data.filter(p=>p.distBisrakh>20);
+  // sort
+  if(distFilterState.sort==='asc') data.sort((a,b)=>a.distBisrakh-b.distBisrakh);
+  if(distFilterState.sort==='desc') data.sort((a,b)=>b.distBisrakh-a.distBisrakh);
+  if(distFilterState.sort==='score') data.sort((a,b)=>b.s-a.s);
+
+  const rc = document.getElementById('dist-result-count');
+  if(rc) rc.innerHTML = `<b>${data.length}</b> pincodes`;
+
+  document.getElementById('dist-tbody').innerHTML=data.map(p=>`
+    <tr onclick="flyToPin(${p.pc})">
+      <td class="pc">${p.pc}</td>
+      <td style="font-size:10px;color:var(--text)">${p.area.slice(0,18)}</td>
+      <td><span class="score-pill" style="background:${scoreColor(p.s)}22;color:${scoreColor(p.s)};font-size:10px">${p.s}</span></td>
+      <td style="font-family:var(--mono);color:${p.covB?'#00d4aa':'var(--text2)'}">${p.distBisrakh}</td>
+      <td><span style="font-size:9px;padding:1px 6px;border-radius:3px;background:${p.covB?'#00d4aa22':'#ffffff0a'};color:${p.covB?'#00d4aa':'var(--text3)'}">${p.covB?'✓ Covered':'Gap'}</span></td>
+    </tr>
+  `).join('');
+}
+
+
+// ============================================================
+// STUDIO — CUSTOM ZONE BUILDER
+// ============================================================
+let studioMode = 'zone'; // 'zone' | 'wh' | 'off'
+let activePins = []; // {pc, lat, lng, area, s} or {lat, lng, label} for map clicks
+let customZones = []; // {id, name, color, pins:[{pc,lat,lng,area,s}], score}
+let customWHPoints = []; // {id, lat, lng, label, distances:[]}
+let studioMapClickHandler = null;
+let studioMarkers = []; // leaflet markers for studio pins
+let studioWHMarkers = []; // leaflet markers for custom WH
+let studioLines = []; // leaflet polylines
+let studioInitDone = false;
+let czIdCounter = 1;
+let cwIdCounter = 1;
+
+function initStudio(){
+  if(studioInitDone)return;
+  studioInitDone=true;
+
+  // ── Leaflet.Draw setup ─────────────────────────────────────────
+  window._drawItems = new L.FeatureGroup().addTo(map);
+
+  window._drawControl = null; // active draw handler
+
+  // Listen for draw:created events
+  map.on('draw:created', function(e){
+    const layer = e.layer;
+    const type  = e.layerType;
+
+    if(type === 'polyline'){
+      const latlngs = layer.getLatLngs();
+      if(latlngs.length >= 2){
+        const a = latlngs[0], b = latlngs[latlngs.length-1];
+        const d = haversine({lat:a.lat,lng:a.lng},{lat:b.lat,lng:b.lng});
+        const estMin = Math.round(d/0.35);
+        layer.bindTooltip(
+          `<b>${d.toFixed(2)} km</b><br>${estMin} min est.`,
+          {permanent:true, direction:'center', className:'draw-dist-tip'}
+        );
+        window._drawItems.addLayer(layer);
+        setDrawHint(`📏 Distance: ${d.toFixed(2)} km · ~${estMin} min delivery`);
+      }
+    }
+
+    if(type === 'polygon'){
+      const latlngs = layer.getLatLngs()[0];
+      // Find all PINS inside polygon
+      const inside = PINS.filter(p => isPointInPolygon([p.lat,p.lng], latlngs));
+      const totalScore = inside.reduce((a,p)=>a+p.s, 0);
+      const col = document.getElementById('zone-color-pick').value || '#5c35e8';
+      layer.setStyle({color:col, fillColor:col, fillOpacity:0.12, weight:2});
+
+      if(inside.length){
+        // Auto-add these pins to zone builder
+        inside.forEach(p => addPinToActive(p));
+        const label = `${inside.length} pins · Score ${totalScore.toFixed(0)}`;
+        layer.bindTooltip(label, {permanent:true, direction:'center'});
+        setDrawHint(`⬡ Zone captured: ${inside.length} pincodes · Score ${totalScore.toFixed(0)} — click Save Zone`);
+        // Auto-fill zone name if empty
+        const ni = document.getElementById('zone-name-input');
+        if(ni && !ni.value) ni.value = 'Drawn Zone';
+      } else {
+        layer.bindTooltip('No pincodes inside', {permanent:true});
+        setDrawHint('⬡ No dataset pincodes inside polygon — try a larger area');
+      }
+      window._drawItems.addLayer(layer);
+    }
+
+    if(type === 'circle'){
+      const center = layer.getLatLng();
+      const radiusKm = layer.getRadius() / 1000;
+      const inside = PINS.filter(p => haversine({lat:p.lat,lng:p.lng}, {lat:center.lat,lng:center.lng}) <= radiusKm);
+      const totalScore = inside.reduce((a,p)=>a+p.s, 0);
+      layer.bindTooltip(`r=${radiusKm.toFixed(1)}km · ${inside.length} pins · Score ${totalScore.toFixed(0)}`, {permanent:true});
+      window._drawItems.addLayer(layer);
+      inside.forEach(p=>addPinToActive(p));
+      setDrawHint(`⭕ Circle r=${radiusKm.toFixed(1)}km: ${inside.length} pincodes captured · Score ${totalScore.toFixed(0)}`);
+    }
+
+    // Reset to pan after draw completes
+    setStudioMode('off', document.getElementById('mode-off'));
+  });
+
+  map.on('draw:drawstart', function(){ setDrawHint('Click to start · double-click to finish'); });
+  map.on('draw:drawstop',  function(){ });
+
+  // ── Regular map click (zone pin / WH point) ─────────────────────
+  map.on('click', function(e){
+    if(studioMode==='off' || studioMode==='line' || studioMode==='poly')return;
+    const lat=+e.latlng.lat.toFixed(5), lng=+e.latlng.lng.toFixed(5);
+    if(studioMode==='zone'){
+      let nearest=null, minD=999;
+      PINS.forEach(p=>{ const d=haversine(p,{lat,lng}); if(d<minD){minD=d;nearest=p;} });
+      if(nearest && minD<2){
+        addPinToActive(nearest);
+        setDrawHint('📍 Added '+nearest.pc+' ('+nearest.area+') — '+minD.toFixed(1)+'km from click');
+      } else {
+        const pt={pc:null,lat,lng,area:'Custom point',s:0,label:lat+','+lng};
+        addPinToActive(pt);
+        setDrawHint('📍 Custom point: '+lat+', '+lng);
+      }
+    } else if(studioMode==='wh'){
+      addCustomWH(lat, lng);
+    }
+  });
+}
+
+function setStudioMode(mode, el){
+  studioMode = mode;
+
+  // Highlight active chip
+  document.querySelectorAll('#tab-studio .chip').forEach(c=>c.classList.remove('on'));
+  if(el) el.classList.add('on');
+
+  // Stop any active draw handler
+  if(window._activeDrawHandler){
+    try{ window._activeDrawHandler.disable(); }catch(e){}
+    window._activeDrawHandler = null;
+  }
+
+  if(!studioInitDone){ initStudio(); }
+  if(!window._drawItems) window._drawItems = new L.FeatureGroup().addTo(map);
+
+  const hints = {
+    zone: '📍 Click any point on map — nearest pincode auto-snaps (within 2km)',
+    wh:   '🏭 Click map to drop a WH marker — distances auto-draw to saved zones',
+    line: '📏 Click start point → click end point → double-click to finish — distance shown',
+    poly: '⬡ Click to draw polygon corners → double-click to close — pincodes inside auto-captured',
+    off:  '✋ Pan & zoom mode'
+  };
+  setDrawHint(hints[mode]||'');
+
+  if(mode === 'line'){
+    const handler = new L.Draw.Polyline(map, {
+      shapeOptions:{ color:'#5c35e8', weight:2.5, dashArray:'6,3' },
+      metric:true, feet:false,
+      showLength:true,
+      guidelineDistance:10,
+    });
+    handler.enable();
+    window._activeDrawHandler = handler;
+  }
+
+  if(mode === 'poly'){
+    const col = document.getElementById('zone-color-pick')?.value || '#5c35e8';
+    const handler = new L.Draw.Polygon(map, {
+      shapeOptions:{ color:col, fillColor:col, fillOpacity:0.15, weight:2 },
+      showArea:false,
+      allowIntersection:false,
+    });
+    handler.enable();
+    window._activeDrawHandler = handler;
+  }
+}
+
+function setDrawHint(msg){
+  const el = document.getElementById('draw-hint');
+  if(el) el.textContent = msg;
+}
+
+function clearDrawings(){
+  if(window._drawItems) window._drawItems.clearLayers();
+  setDrawHint('All drawings cleared');
+}
+
+// Point-in-polygon (ray casting)
+function isPointInPolygon(point, polygon){
+  const [px, py] = point;
+  let inside = false;
+  const n = polygon.length;
+  for(let i=0, j=n-1; i<n; j=i++){
+    const xi=polygon[i].lat, yi=polygon[i].lng;
+    const xj=polygon[j].lat, yj=polygon[j].lng;
+    if(((yi>py)!==(yj>py)) && (px < (xj-xi)*(py-yi)/(yj-yi)+xi)) inside=!inside;
+  }
+  return inside;
+}
+
+
+
+function addPinToActive(pin){
+  // dedupe
+  const key = pin.pc||pin.label;
+  if(activePins.find(p=>(p.pc||p.label)===key))return;
+  activePins.push(pin);
+  renderActivePins();
+  // drop marker on map
+  const col = document.getElementById('zone-color-pick').value||'#c8ff00';
+  const m = L.circleMarker([pin.lat,pin.lng],{radius:8,color:col,fillColor:col,fillOpacity:0.7,weight:2}).addTo(map);
+  m._studioPin=key;
+  studioMarkers.push(m);
+}
+
+function removeActivPin(key){
+  activePins=activePins.filter(p=>(p.pc||p.label)!==key);
+  const m=studioMarkers.find(m=>m._studioPin===key);
+  if(m)map.removeLayer(m);
+  studioMarkers=studioMarkers.filter(m=>m._studioPin!==key);
+  renderActivePins();
+}
+
+function renderActivePins(){
+  const col = document.getElementById('zone-color-pick').value||'#c8ff00';
+  const preview = document.getElementById('zone-pins-preview');
+  const empty = document.getElementById('zone-pins-empty');
+  if(!activePins.length){
+    if(empty)empty.style.display='';
+    preview.innerHTML='<span style="font-size:10px;color:var(--text3)" id="zone-pins-empty">No pins yet — click map or type pincode above</span>';
+    return;
+  }
+  preview.innerHTML = activePins.map(p=>{
+    const key=p.pc||p.label;
+    const label=p.pc?p.pc+' · '+p.area.slice(0,16):p.label;
+    const score=p.s?` <span style="color:${scoreColor(p.s)}">${p.s}</span>`:'';
+    return `<div class="active-pin-tag" style="background:${col}22;color:${col}" onclick="removeActivPin('${key}')">
+      ${label}${score}<span class="rm">✕</span>
+    </div>`;
+  }).join('');
+}
+
+function addPincodeToZone(){
+  const input = document.getElementById('zone-pc-input');
+  const val = input.value.trim();
+  if(!val)return;
+  const pc=parseInt(val);
+  const pin=PINS.find(p=>p.pc===pc);
+  if(pin){
+    addPinToActive(pin);
+    input.value='';
+    map.flyTo([pin.lat,pin.lng],13,{duration:0.8});
+    showPromptResult('✓ Added '+pc+' ('+pin.area+') — Score: '+pin.s);
+  } else {
+    showPromptResult('✗ Pincode '+val+' not found in dataset');
+  }
+}
+
+function clearActivePins(){
+  activePins=[];
+  studioMarkers.forEach(m=>map.removeLayer(m));
+  studioMarkers=[];
+  renderActivePins();
+}
+
+function saveCustomZone(){
+  const name = document.getElementById('zone-name-input').value.trim()||('Zone '+czIdCounter);
+  const color = document.getElementById('zone-color-pick').value||'#c8ff00';
+  if(!activePins.length){showPromptResult('✗ Add at least one pin first');return;}
+  const totalScore = activePins.reduce((a,p)=>a+(p.s||0),0);
+  const zone = {id:'cz'+czIdCounter++, name, color, pins:[...activePins], score:totalScore.toFixed(1)};
+  customZones.push(zone);
+  // Draw polygon on map for this zone
+  if(activePins.length>=3){
+    const pts=activePins.map(p=>[p.lat,p.lng]);
+    const hull=convexHull(pts);
+    const poly=L.polygon(hull,{color,fillColor:color,fillOpacity:0.1,weight:1.5,dashArray:'4,3'}).addTo(map);
+    poly._czId=zone.id;
+    studioLines.push(poly);
+  }
+  // commit markers (change them to solid)
+  studioMarkers.forEach(m=>{ m.setStyle({opacity:0.5,fillOpacity:0.4}); });
+  studioMarkers=[];
+  activePins=[];
+  document.getElementById('zone-name-input').value='';
+  renderActivePins();
+  renderCustomZones();
+  showPromptResult('✅ Zone "'+name+'" saved with '+zone.pins.length+' pins · Score: '+totalScore.toFixed(0));
+}
+
+function deleteCustomZone(id){
+  customZones=customZones.filter(z=>z.id!==id);
+  // remove polygon
+  studioLines.filter(l=>l._czId===id).forEach(l=>map.removeLayer(l));
+  studioLines=studioLines.filter(l=>l._czId!==id);
+  renderCustomZones();
+  recalcAllWHDistances();
+}
+
+function clearAllCustomZones(){
+  customZones=[];
+  studioLines.forEach(l=>map.removeLayer(l));
+  studioLines=[];
+  renderCustomZones();
+}
+
+function focusCustomZone(id){
+  const z=customZones.find(x=>x.id===id);
+  if(!z||!z.pins.length)return;
+  const lats=z.pins.map(p=>p.lat),lngs=z.pins.map(p=>p.lng);
+  map.fitBounds([[Math.min(...lats)-0.01,Math.min(...lngs)-0.01],[Math.max(...lats)+0.01,Math.max(...lngs)+0.01]]);
+}
+
+function renderCustomZones(){
+  const el=document.getElementById('custom-zones-list');
+  const cnt=document.getElementById('cz-count');
+  if(cnt)cnt.textContent=customZones.length;
+  if(!customZones.length){
+    el.innerHTML='<div style="font-size:10px;color:var(--text3);padding:8px">No zones saved yet</div>';
+    return;
+  }
+  el.innerHTML=customZones.map(z=>`
+    <div class="custom-zone-card">
+      <div class="cz-head">
+        <div class="cz-dot" style="background:${z.color}"></div>
+        <div class="cz-name">${z.name}</div>
+        <div class="cz-score">${z.pins.length} pins · ${z.score}</div>
+      </div>
+      <div class="cz-pins">
+        ${z.pins.map(p=>`<span class="cz-pin-tag" style="background:${z.color}22;color:${z.color}" onclick="flyToPin(${p.pc||0})" title="${p.area}">${p.pc||p.label}</span>`).join('')}
+      </div>
+      <div class="cz-actions">
+        <button class="cz-btn" onclick="focusCustomZone('${z.id}')">Focus</button>
+        <button class="cz-btn" onclick="showWHDistancesToZone('${z.id}')">WH Distances</button>
+        <button class="cz-btn" style="color:var(--accent3);border-color:var(--accent3)" onclick="deleteCustomZone('${z.id}')">Delete</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+// CUSTOM WH POINTS
+function addCustomWH(lat, lng){
+  const label='WH-'+cwIdCounter++;
+  const wh={id:'cwh'+(cwIdCounter-1),lat,lng,label,distances:[]};
+  customWHPoints.push(wh);
+  // marker
+  const icon=L.divIcon({
+    className:'',
+    html:`<div style="width:32px;height:32px;border-radius:50%;background:#7b5cff;border:2px solid #fff;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:900;color:#fff;font-family:'Syne',sans-serif">${label}</div>`,
+    iconSize:[32,32],iconAnchor:[16,16]
+  });
+  const m=L.marker([lat,lng],{icon,zIndexOffset:800}).addTo(map);
+  m._cwhId=wh.id;
+  studioWHMarkers.push(m);
+  // draw distances to all custom zone pins
+  drawWHDistanceLines(wh);
+  renderCustomWHList();
+  showPromptResult('🏭 WH point "'+label+'" placed at '+lat.toFixed(4)+', '+lng.toFixed(4));
+}
+
+function drawWHDistanceLines(wh){
+  // remove old lines for this WH
+  studioLines.filter(l=>l._cwhId===wh.id).forEach(l=>map.removeLayer(l));
+  studioLines=studioLines.filter(l=>l._cwhId!==wh.id);
+  wh.distances=[];
+  // draw lines to all custom zone pins
+  customZones.forEach(z=>{
+    z.pins.forEach(p=>{
+      const d=haversine({lat:wh.lat,lng:wh.lng},{lat:p.lat,lng:p.lng});
+      wh.distances.push({pc:p.pc,area:p.area,d,zoneName:z.name,zoneColor:z.color});
+      const col=d<=10?'#00d4aa':d<=20?'#c8ff00':'#ff8c42';
+      const line=L.polyline([[wh.lat,wh.lng],[p.lat,p.lng]],{color:col,weight:1.5,dashArray:'4,3',opacity:0.7}).addTo(map);
+      line._cwhId=wh.id;
+      line.bindTooltip(d.toFixed(1)+'km',{permanent:false,direction:'center'});
+      studioLines.push(line);
+    });
+  });
+  // also draw to active bisrakh covered pincodes
+  if(!customZones.length){
+    PINS.filter(p=>p.s>=40).forEach(p=>{
+      const d=haversine({lat:wh.lat,lng:wh.lng},{lat:p.lat,lng:p.lng});
+      if(d<=15){
+        wh.distances.push({pc:p.pc,area:p.area,d,zoneName:'High Score',zoneColor:'#ff4444'});
+        const line=L.polyline([[wh.lat,wh.lng],[p.lat,p.lng]],{color:d<=10?'#00d4aa':'#c8ff00',weight:1,dashArray:'3,3',opacity:0.5}).addTo(map);
+        line._cwhId=wh.id;
+        line.bindTooltip(d.toFixed(1)+'km',{permanent:false});
+        studioLines.push(line);
+      }
+    });
+  }
+}
+
+function showWHDistancesToZone(zoneId){
+  const z=customZones.find(x=>x.id===zoneId);
+  if(!z)return;
+  if(!customWHPoints.length){showPromptResult('⚠ Place a WH point first (🏭 WH Point mode → click map)');return;}
+  customWHPoints.forEach(wh=>{
+    z.pins.forEach(p=>{
+      const d=haversine({lat:wh.lat,lng:wh.lng},{lat:p.lat,lng:p.lng});
+      const col=d<=10?'#00d4aa':d<=20?'#c8ff00':'#ff8c42';
+      const line=L.polyline([[wh.lat,wh.lng],[p.lat,p.lng]],{color:col,weight:2,opacity:0.8}).addTo(map);
+      line._cwhId=wh.id;
+      line.bindTooltip(wh.label+' → '+p.pc+': '+d.toFixed(1)+'km',{permanent:false});
+      studioLines.push(line);
+    });
+  });
+  showPromptResult('📐 Distances drawn for zone "'+z.name+'"');
+}
+
+function recalcAllWHDistances(){
+  customWHPoints.forEach(wh=>drawWHDistanceLines(wh));
+  renderCustomWHList();
+}
+
+function deleteCustomWH(id){
+  customWHPoints=customWHPoints.filter(w=>w.id!==id);
+  studioWHMarkers.filter(m=>m._cwhId===id).forEach(m=>map.removeLayer(m));
+  studioWHMarkers=studioWHMarkers.filter(m=>m._cwhId!==id);
+  studioLines.filter(l=>l._cwhId===id).forEach(l=>map.removeLayer(l));
+  studioLines=studioLines.filter(l=>l._cwhId!==id);
+  renderCustomWHList();
+}
+
+function renderCustomWHList(){
+  const el=document.getElementById('custom-wh-list');
+  if(!el)return;
+  if(!customWHPoints.length){
+    el.innerHTML='<div style="font-size:10px;color:var(--text3);padding:4px">No WH points yet</div>';
+    return;
+  }
+  el.innerHTML=customWHPoints.map(wh=>{
+    const sorted=[...wh.distances].sort((a,b)=>a.d-b.d);
+    const distRows=sorted.slice(0,6).map(d=>`
+      <div style="display:flex;justify-content:space-between;font-size:10px;margin:1px 0">
+        <span style="color:${d.zoneColor}">${d.zoneName}</span>
+        <span style="color:var(--text2)">${d.pc||d.area.slice(0,12)}</span>
+        <span style="font-family:var(--mono);color:${d.d<=10?'#00d4aa':d.d<=20?'#c8ff00':'#ff8c42'};font-weight:700">${d.d.toFixed(1)}km</span>
+      </div>`).join('');
+    const within10=wh.distances.filter(d=>d.d<=10).length;
+    return `<div class="custom-wh-card">
+      <div class="wh-head">
+        <div style="width:24px;height:24px;border-radius:50%;background:#7b5cff;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:900;color:#fff">${wh.label}</div>
+        <div class="wh-title">${wh.label}</div>
+        <span style="font-size:9px;color:#00d4aa;font-family:var(--mono)">${within10} within 10km</span>
+      </div>
+      <div class="wh-coords">${wh.lat.toFixed(4)}, ${wh.lng.toFixed(4)}</div>
+      ${distRows}
+      ${sorted.length>6?`<div style="font-size:9px;color:var(--text3);margin-top:2px">+${sorted.length-6} more distances</div>`:''}
+      <div style="display:flex;gap:5px;margin-top:6px">
+        <button class="cz-btn" onclick="map.flyTo([${wh.lat},${wh.lng}],13)">Focus</button>
+        <button class="cz-btn" style="color:var(--accent3)" onclick="deleteCustomWH('${wh.id}')">Remove</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ============================================================
+// CLAUDE AI CHATBOT
+// ============================================================
+let chatHistory = [];
+let chatBusy = false;
+
+function buildSystemPrompt(){
+  const pinData = PINS.map(p=>
+    `${p.pc}|${p.area}|score:${p.s}|hh:${p.hh}|kids:${p.pop}|ped:${p.ped}|pre:${p.pre}|dist_bisrakh:${p.distBisrakh}km|covered:${p.covB?'yes':'no'}`
+  ).join('\n');
+
+  const zoneData = ZONES.map(z=>{
+    const pins=PINS.filter(p=>z.pincodes.includes(p.pc));
+    const ts=pins.reduce((a,p)=>a+p.s,0);
+    return `Zone "${z.label}": ${pins.length} pincodes, total score ${ts.toFixed(0)}, pins: ${z.pincodes.join(',')}`;
+  }).join('\n');
+
+  const customZoneData = customZones.length?customZones.map(z=>`Custom zone "${z.name}": pins ${z.pins.map(p=>p.pc||p.label).join(',')}, score ${z.score}`).join('\n'):'No custom zones yet';
+
+  return `You are an expert warehouse location analyst for Ozi — a premium quick commerce platform in NCR India serving 0-10 year old kids and young moms. You have access to real pincode-level demand data.
+
+SCORING LOGIC (weights): HH income >₹10L = 30%, Kids pop <6yr = 25%, Pediatric clinics = 20%, Preschools = 15%, Schools = 10%. Scores normalized 0-100.
+
+EXISTING WH: Bisrakh/Jalalpur WH1 at 28.546, 77.520 — covers 8 pincodes within 10km (201301,201307,201305,201310,201303,201019,201010,201007), total Ozi score 171.3.
+
+ALL 61 PINCODES (format: pincode|area|score|hh_income_above10L|kids_under6|ped_clinics|preschools|dist_from_bisrakh|bisrakh_covered):
+${pinData}
+
+PREDEFINED ZONES:
+${zoneData}
+
+CUSTOM ZONES CREATED BY USER:
+${customZoneData}
+
+KEY INSIGHTS:
+- Top 3 uncovered: 201304 Indirapuram (72.4), 110092 Mayur Vihar Ph3 (71.6), 201009 Noida Sec 50-52 (65.8)
+- Best WH2 location: Sec 62/NH-24 junction (28.625, 77.378) — covers 10 high-value pincodes, zero Bisrakh overlap
+- Gurgaon excluded from scope
+- Faridabad zone: 121001 (33.8), 121002 (40.2) are highest scoring
+
+When user asks to create a zone or add pincodes, respond with a JSON action block at the END of your response:
+ACTION:{"type":"create_zone","name":"Zone Name","pincodes":[201304,110092],"color":"#ff4444"}
+or ACTION:{"type":"fly_to","pc":201304}
+or ACTION:{"type":"add_pins","pincodes":[201304,110092]}
+
+Keep responses concise, data-driven, in Hinglish or English as user prefers. Use bullet points. Reference actual scores and numbers.`;
+}
+
+async function sendChat(){
+  if(chatBusy)return;
+  const input = document.getElementById('chat-input');
+  const msg = input.value.trim();
+  if(!msg)return;
+  input.value='';
+  appendUserMsg(msg);
+  await callClaude(msg);
+}
+
+function sendSugg(btn){
+  const msg = btn.textContent;
+  document.getElementById('chat-input').value='';
+  appendUserMsg(msg);
+  // hide suggestions after first use
+  document.getElementById('suggested-prompts').style.display='none';
+  callClaude(msg);
+}
+
+function appendUserMsg(msg){
+  const box = document.getElementById('chat-messages');
+  const div = document.createElement('div');
+  div.className='chat-msg user-msg';
+  div.textContent=msg;
+  box.appendChild(div);
+  box.scrollTop=box.scrollHeight;
+  chatHistory.push({role:'user',content:msg});
+}
+
+function appendAIMsg(html, rawText){
+  const box = document.getElementById('chat-messages');
+  // remove typing indicator
+  const typing = document.getElementById('typing-indicator');
+  if(typing)typing.remove();
+  const div = document.createElement('div');
+  div.className='chat-msg ai-msg';
+  div.innerHTML=html;
+  box.appendChild(div);
+  box.scrollTop=box.scrollHeight;
+  chatHistory.push({role:'assistant',content:rawText});
+}
+
+function showTyping(){
+  const box = document.getElementById('chat-messages');
+  const div = document.createElement('div');
+  div.id='typing-indicator';
+  div.className='chat-msg ai-msg';
+  div.innerHTML='<span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span>';
+  box.appendChild(div);
+  box.scrollTop=box.scrollHeight;
+}
+
+function setStatus(msg){ const el=document.getElementById('chat-status'); if(el)el.textContent=msg; }
+
+function formatAIResponse(text){
+  // Extract and handle ACTION block
+  let actionData = null;
+  const actionMatch = text.match(/ACTION:(\{[^}]+\})/);
+  if(actionMatch){
+    try{ actionData=JSON.parse(actionMatch[1]); }catch(e){}
+    text=text.replace(/ACTION:\{[^}]+\}/,'').trim();
+  }
+
+  // Format text to HTML
+  let html = text
+    .replace(/\*\*(.+?)\*\*/g,'<b>$1</b>')
+    .replace(/\*(.+?)\*/g,'<i>$1</i>')
+    .replace(/`([^`]+)`/g,'<code style="background:var(--bg3);padding:1px 4px;border-radius:3px;font-family:var(--mono);font-size:10px">$1</code>')
+    .replace(/^[-•] (.+)$/gm,'<div style="margin:2px 0;padding-left:8px">• $1</div>')
+    .replace(/\n\n/g,'<br><br>')
+    .replace(/\n/g,'<br>');
+
+  // Make pincode references clickable
+  html = html.replace(/\b(1[012]\d{4}|2\d{5})\b/g, (pc)=>{
+    const pin=PINS.find(p=>p.pc===parseInt(pc));
+    return pin?`<span class="pin-ref" onclick="flyToPin(${pc})" title="${pin.area} · Score ${pin.s}">${pc}</span>`:pc;
+  });
+
+  // Execute action
+  if(actionData) setTimeout(()=>executeAction(actionData), 500);
+
+  return html;
+}
+
+function executeAction(action){
+  if(action.type==='create_zone'){
+    clearActivePins();
+    const pcs=action.pincodes||[];
+    pcs.forEach(pc=>{const pin=PINS.find(p=>p.pc===pc);if(pin)addPinToActive(pin);});
+    if(action.name) document.getElementById('zone-name-input').value=action.name;
+    if(action.color) document.getElementById('zone-color-pick').value=action.color;
+    if(pcs.length){
+      const first=PINS.find(p=>p.pc===pcs[0]);
+      if(first)map.flyTo([first.lat,first.lng],12,{duration:1});
+    }
+    setStatus('✓ Zone ready — click "Save Zone" to confirm');
+  } else if(action.type==='fly_to'){
+    flyToPin(action.pc);
+  } else if(action.type==='add_pins'){
+    (action.pincodes||[]).forEach(pc=>{const pin=PINS.find(p=>p.pc===pc);if(pin)addPinToActive(pin);});
+    setStatus('✓ Pins added to active zone');
+  }
+}
+
+async function callClaude(userMsg){
+  chatBusy=true;
+  const btn=document.getElementById('chat-send-btn');
+  if(btn){btn.disabled=true;btn.textContent='...';}
+  setStatus('Claude is thinking...');
+  showTyping();
+
+  try{
+    const response = await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-20250514',
+        max_tokens:1000,
+        system: buildSystemPrompt(),
+        messages: chatHistory.slice(-12)
+      })
+    });
+
+    if(!response.ok){
+      const err=await response.json();
+      throw new Error(err.error?.message||'API error '+response.status);
+    }
+
+    const data = await response.json();
+    const rawText = data.content?.find(c=>c.type==='text')?.text||'Sorry, no response.';
+    const html = formatAIResponse(rawText);
+    appendAIMsg(html, rawText);
+    setStatus('');
+  } catch(e){
+    const typing=document.getElementById('typing-indicator');
+    if(typing)typing.remove();
+    appendAIMsg('<span style="color:var(--accent3)">Error: '+e.message+'</span>', 'Error');
+    setStatus('');
+    console.error('Claude API error:',e);
+  } finally {
+    chatBusy=false;
+    if(btn){btn.disabled=false;btn.textContent='Send';}
+  }
+}
+
+function clearChat(){
+  chatHistory=[];
+  const box=document.getElementById('chat-messages');
+  box.innerHTML=`<div class="chat-msg ai-msg" id="chat-welcome">
+    <div style="font-size:11px;line-height:1.6;color:var(--text2)">
+      Chat cleared! Ask me anything about WH locations, zones, or pincode analysis.
+    </div>
+  </div>`;
+  document.getElementById('suggested-prompts').style.display='flex';
+  setStatus('');
+}
+
+// Keep old runPrompt as fallback (for Enter key handler)
+function runPrompt(){
+  const input=document.getElementById('chat-input');
+  if(input&&input.value.trim()){sendChat();return;}
+  // fallback local commands
+  const raw=(document.getElementById('studio-prompt')||{value:''}).value.trim().toLowerCase();
+  if(!raw)return;
+  const pcs=[...raw.matchAll(/\b(1[012]\d{4}|2\d{5})\b/g)].map(m=>parseInt(m[0]));
+  if(raw.includes('create zone')||raw.includes('add zone')){
+    clearActivePins();
+    pcs.forEach(pc=>{const pin=PINS.find(p=>p.pc===pc);if(pin)addPinToActive(pin);});
+  }
+}
+
+function showPromptResult(msg){
+  setStatus(msg);
+  setDrawHint(msg);
+  setTimeout(()=>{setStatus('');setDrawHint('');},6000);
+}
+
+// allow Enter key in pincode input
+document.addEventListener('keydown',function(e){
+  if(e.key==='Enter'&&document.activeElement.id==='zone-pc-input')addPincodeToZone();
+  if(e.key==='Enter'&&document.activeElement.id==='chat-input'){e.preventDefault();sendChat();}
+});
+
+
+// ============================================================
+// BOOT
+// ============================================================
+try{initMap();}catch(e){console.error("initMap error:",e);}
+buildZones();
+filterPins();
+buildWHPanel();
+buildDistTable();
+// Set initial stats
+const topCount=PINS.filter(p=>p.s>=40).length;
+const ovTop=document.getElementById('ov-top');
+if(ovTop)ovTop.textContent=topCount;
+const ovTotal=document.getElementById('ov-total');
+if(ovTotal)ovTotal.textContent=PINS.length;
+</script>
+</body>
+</html>
